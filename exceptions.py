@@ -15,14 +15,17 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+# Base exception for everything we raise
 class MettmailException(Exception):
     pass
 
 
+# Base Fetch exception
 class MettmailFetchException(MettmailException):
     pass
 
 
+## Fetch exceptions...
 class MettmailFetchUnexpectedResponse(MettmailFetchException):
     pass
 
@@ -36,4 +39,22 @@ class MettmailFetchParserError(MettmailFetchException):
 
 
 class MettmailFetchCommandFailed(MettmailFetchException):
+    pass
+
+
+# Base Deliver exception
+class MettmailDeliverException(MettmailException):
+    pass
+
+
+## Deliver exceptions...
+class MettmailDeliverConnectError(MettmailDeliverException):
+    pass
+
+
+class MettmailDeliverInconsistentResponse(MettmailDeliverException):
+    pass
+
+
+class MettmailDeliverCommandFailed(MettmailDeliverException):
     pass

@@ -22,7 +22,7 @@ import sys
 import click
 from loguru import logger
 
-from imap_fetch import imap_loop
+from fetch_imap import imap_loop
 
 
 @click.command()
