@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "mettmail"
+version = "0.1.0"
+description = "get mail from IMAP server with IDLE extension and deliver to LMTP server, nothing else"
+authors = ["spezifisch <spezifisch-gpl.7e6@below.fr>"]
+repository = "https://github.com/spezifisch/mettmail"
+license = "GPLv3"
+
+[tool.poetry.dependencies]
+python = "^3.6.2"
+aioimaplib = {git = "https://github.com/bamthomas/aioimaplib", rev = "d417343"}
+loguru = "^0.5.3"
+click = "^8.0.3"
+
+[tool.poetry.dev-dependencies]
+black = "^21.12b0"
+
+[tool.black]
+line-length = 119
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
