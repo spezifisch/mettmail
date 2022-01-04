@@ -30,6 +30,7 @@ from exceptions import (
     MettmailDeliverConnectError,
     MettmailDeliverException,
     MettmailDeliverInconsistentResponse,
+    MettmailDeliverRecipientRefused,
 )
 
 
@@ -90,16 +91,18 @@ class DeliverLMTP(DeliverBase):
             raise MettmailDeliverCommandFailed(err)
 
     def disconnect(self) -> None:
-        if self.client is None:
-            return
-
-        try:
-            self.client.quit()
-        except smtplib.SMTPException:
-            logger.exception("tried to close still open client")
-            # proceed anyway
-
-        self.client = None
+        if self.client:
+            logger.trace("sending quit")
+            try:
+                self.client.quit()
+            except smtplib.SMTPException as err:
+                logger.warning(f"quit failed: {err}")
+                # proceed anyway
+            else:
+                logger.trace("quit ok")
+                self.client = None
+        else:
+            logger.trace("already disconnected")
 
     def deliver_message(self, message: bytearray) -> bool:
         from_addr = self.envelope_sender
@@ -109,15 +112,15 @@ class DeliverLMTP(DeliverBase):
         # send mail
         try:
             response = self.client.sendmail(from_addr=from_addr, to_addrs=to_addr, msg=message)
-        except smtplib.SMTPException:
-            err = "smtp failure while sending"
-            logger.exception(err)
-            raise MettmailDeliverCommandFailed(err)
+        except smtplib.SMTPRecipientsRefused as err:
+            raise MettmailDeliverRecipientRefused(f"recipient refused: {err}")
+        except smtplib.SMTPException as err:
+            raise MettmailDeliverCommandFailed(f"smtp failure: {err}")
         except:
             # catch all exception and make sure we leave this function
             err = "general exception while sending"
             logger.exception(err)
-            raise MettmailDeliverCommandFailed(err)
+            raise MettmailDeliverCommandFailed("general smtp failure")
 
         logger.trace(f"sendmail response: {response}")
         # sanity check

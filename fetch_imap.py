@@ -33,6 +33,7 @@ from exceptions import (
     MettmailFetchFeatureUnsupported,
     MettmailFetchInconsistentResponse,
     MettmailFetchParserError,
+    MettmailFetchStateError,
     MettmailFetchTimeoutError,
     MettmailFetchUnexpectedResponse,
 )
@@ -263,9 +264,10 @@ class FetchIMAP:
         ok = False
         try:
             ok = self.deliverer.deliver_message(msg)
-        except MettmailDeliverException as err:
-            logger.error(f"deliverer failed: {err}")
-            ok = False
+        except MettmailDeliverException:
+            # just to show this is intentional
+            logger.error(f"failed delivering message uid={uid}")
+            raise
 
         # set flag
         if ok:
@@ -273,6 +275,9 @@ class FetchIMAP:
             await self.set_fetched_flag(
                 uid
             )  # TODO how should we do error handling here? we can't un-deliver the mail.
+        else:
+            # should never happen
+            raise MettmailFetchStateError("delivery was not ok but no exception was raised")
 
         # done
         end_time = time.time()

@@ -37,11 +37,9 @@ async def mettmail_loop(fetcher: FetchIMAP) -> None:
         await fetcher.connect()
     except MettmailFetchAuthenticationError as err:
         logger.error(f"login failed: {err}")
-        await fetcher.disconnect()
         return
     except MettmailFetchException as err:
         logger.error(f"connection failed: {err}")
-        await fetcher.disconnect()
         return
 
     try:
@@ -51,7 +49,6 @@ async def mettmail_loop(fetcher: FetchIMAP) -> None:
 
         if not fetcher.has_idle():
             logger.warning("fetch complete, ending because we can't IDLE")
-            await fetcher.disconnect()
             return
 
         # fetch/deliver new messages as they arrive
@@ -59,11 +56,9 @@ async def mettmail_loop(fetcher: FetchIMAP) -> None:
         await fetcher.run_idle_loop()
     except MettmailFetchException as err:
         logger.error(f"fetcher error: {err}")
-        await fetcher.disconnect()
         return
     except MettmailDeliverException as err:
         logger.error(f"deliverer error: {err}")
-        await fetcher.disconnect()
         return
 
 
@@ -82,7 +77,7 @@ def run(debug: bool, trace: bool) -> None:
     # LMTP
     lmtp_host = "localhost"
     lmtp_port = 24
-    lmtp_envelope_recipient = "rxa"
+    lmtp_envelope_recipient = "rxaff"
     deliverer = DeliverLMTP(host=lmtp_host, port=lmtp_port, envelope_recipient=lmtp_envelope_recipient)
 
     # IMAP
@@ -91,10 +86,15 @@ def run(debug: bool, trace: bool) -> None:
     imap_password = "pass"
     fetcher = FetchIMAP(host=imap_host, user=imap_user, password=imap_password, deliverer=deliverer)
 
-    # run
+    # run mettmail_loop until an error occurs
     loop = asyncio.get_event_loop()
     task = mettmail_loop(fetcher)
     loop.run_until_complete(task)
+
+    # cleanup
+    logger.trace("cleanup")
+    loop.run_until_complete(fetcher.disconnect())
+    deliverer.disconnect()
 
 
 if __name__ == "__main__":

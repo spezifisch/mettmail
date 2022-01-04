@@ -54,6 +54,10 @@ class MettmailFetchCommandFailed(MettmailFetchException):
     pass
 
 
+class MettmailFetchStateError(MettmailFetchException):
+    pass
+
+
 # Base Deliver exception
 class MettmailDeliverException(MettmailException):
     pass
@@ -69,4 +73,8 @@ class MettmailDeliverInconsistentResponse(MettmailDeliverException):
 
 
 class MettmailDeliverCommandFailed(MettmailDeliverException):
+    pass
+
+
+class MettmailDeliverRecipientRefused(MettmailDeliverException):
     pass
