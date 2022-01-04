@@ -16,10 +16,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import abc
-from typing import Optional
 
 
 class DeliverBase(abc.ABC):
     @abc.abstractmethod
-    async def deliver_message(message: bytearray) -> bool:
+    def connect() -> None:
+        pass
+
+    @abc.abstractmethod
+    def disconnect() -> None:
+        pass
+
+    @abc.abstractmethod
+    def deliver_message(message: bytearray) -> bool:
         return False

@@ -22,6 +22,7 @@ import sys
 import click
 from loguru import logger
 
+from deliver_lmtp import DeliverLMTP
 from fetch_imap import imap_loop
 
 
@@ -37,8 +38,19 @@ def run(debug, trace):
     else:
         logger.add(sys.stderr, level="INFO")
 
+    # LMTP
+    lmtp_host = "localhost"
+    lmtp_port = 24
+    lmtp_envelope_recipient = "rxa"
+    deliverer = DeliverLMTP(host=lmtp_host, port=lmtp_port, envelope_recipient=lmtp_envelope_recipient)
+
+    # IMAP
+    imap_host = "localhost"
+    imap_user = "foo"
+    imap_password = "pass"
+
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(imap_loop("localhost", "foo", "pass"))
+    loop.run_until_complete(imap_loop(imap_host, imap_user, imap_password, deliverer))
 
 
 if __name__ == "__main__":

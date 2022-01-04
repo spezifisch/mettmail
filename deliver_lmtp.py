@@ -40,9 +40,9 @@ class DeliverLMTP(DeliverBase):
     # value should be irrelevant.
     DEFAULT_SENDER = "mettmail@localhost"
 
-    def __init__(self, host: str, **kwargs) -> None:
+    def __init__(self, **kwargs) -> None:
         # smtplib.LMTP.connect() parameters
-        self.host = host
+        self.host = kwargs["host"]  # type: str
         self.port = kwargs.get("port", None)  # type: Optional[int]
         self.local_hostname = kwargs.get("local_hostname", None)  # type: Optional[str]
         self.source_address = kwargs.get("source_address", None)  # type: Optional[str]
@@ -148,7 +148,7 @@ async def lmtp_test(host, port, recipient) -> bool:
         b"From: noreply.foo@mailgen.example.com\r\nTo: foo@testcot\r\nSubject: test mail 1641157914 to foo\r\nDate: Sun, 02 Jan 2022 21:11:54 +0000\r\n\r\nthis is content\r\n"
     )
 
-    lmtp = DeliverLMTP(host, port=port, envelope_recipient=recipient)
+    lmtp = DeliverLMTP(host=host, port=port, envelope_recipient=recipient)
     try:
         lmtp.connect()
     except MettmailDeliverException:
