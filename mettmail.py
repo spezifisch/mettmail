@@ -23,13 +23,54 @@ import click
 from loguru import logger
 
 from deliver_lmtp import DeliverLMTP
-from fetch_imap import imap_loop
+from exceptions import MettmailDeliverException, MettmailFetchAuthenticationError, MettmailFetchException
+from fetch_imap import FetchIMAP
+
+
+@logger.catch
+async def mettmail_loop(fetcher: FetchIMAP) -> None:
+    """Mettmail main loop that fetches mails as they arrive on IMAP and delivers them using LMTP.
+    
+    TODO: retry logic, on any problem we currently just raise an exception and bail."""
+    logger.info("connecting")
+    try:
+        await fetcher.connect()
+    except MettmailFetchAuthenticationError as err:
+        logger.error(f"login failed: {err}")
+        await fetcher.disconnect()
+        return
+    except MettmailFetchException as err:
+        logger.error(f"connection failed: {err}")
+        await fetcher.disconnect()
+        return
+
+    try:
+        # initially fetch unflagged messages (and deliver them)
+        logger.info("initial fetch")
+        await fetcher.fetch_deliver_unflagged_messages()
+
+        if not fetcher.has_idle():
+            logger.warning("fetch complete, ending because we can't IDLE")
+            await fetcher.disconnect()
+            return
+
+        # fetch/deliver new messages as they arrive
+        logger.info("waiting for new messages")
+        await fetcher.run_idle_loop()
+    except MettmailFetchException as err:
+        logger.error(f"fetcher error: {err}")
+        await fetcher.disconnect()
+        return
+    except MettmailDeliverException as err:
+        logger.error(f"deliverer error: {err}")
+        await fetcher.disconnect()
+        return
 
 
 @click.command()
 @click.option("--debug", default=False, is_flag=True, help="Set loglevel to DEBUG")
 @click.option("--trace", default=False, is_flag=True, help="Set loglevel to TRACE")
-def run(debug, trace):
+def run(debug: bool, trace: bool) -> None:
     logger.remove()
     if trace:
         logger.add(sys.stderr, level="TRACE")
@@ -48,9 +89,12 @@ def run(debug, trace):
     imap_host = "localhost"
     imap_user = "foo"
     imap_password = "pass"
+    fetcher = FetchIMAP(host=imap_host, user=imap_user, password=imap_password, deliverer=deliverer)
 
+    # run
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(imap_loop(imap_host, imap_user, imap_password, deliverer))
+    task = mettmail_loop(fetcher)
+    loop.run_until_complete(task)
 
 
 if __name__ == "__main__":

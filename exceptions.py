@@ -26,11 +26,15 @@ class MettmailFetchException(MettmailException):
 
 
 ## Fetch exceptions...
-class MettmailFetchConnectError(MettmailFetchException):
+class MettmailFetchTimeoutError(MettmailFetchException):
     pass
 
 
 class MettmailFetchAuthenticationError(MettmailFetchException):
+    pass
+
+
+class MettmailFetchFeatureUnsupported(MettmailFetchException):
     pass
 
 

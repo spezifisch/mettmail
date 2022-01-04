@@ -19,14 +19,25 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
 import re
+import time
 from typing import List, Optional
 
 import aioimaplib
 from loguru import logger
 
 from deliver_base import DeliverBase
-from exceptions import *
+from exceptions import (
+    MettmailDeliverException,
+    MettmailFetchAuthenticationError,
+    MettmailFetchCommandFailed,
+    MettmailFetchFeatureUnsupported,
+    MettmailFetchInconsistentResponse,
+    MettmailFetchParserError,
+    MettmailFetchTimeoutError,
+    MettmailFetchUnexpectedResponse,
+)
 
+SELECT_PERMANENTFLAGS = re.compile(rb".*PERMANENTFLAGS \((?P<permanent_flags>.*?)\).*")
 FETCH_MESSAGE_DATA_FLAGS = re.compile(rb".*FLAGS \((?P<flags>.*?)\).*")
 FETCH_MESSAGE_DATA_SIZE = re.compile(rb".*RFC822.SIZE (?P<size>\d+).*")
 
@@ -34,7 +45,7 @@ CUSTOM_FLAG_FETCHED = "MettmailFetched"
 bCUSTOM_FLAG_FETCHED = CUSTOM_FLAG_FETCHED.encode()
 
 
-class FetchImap:
+class FetchIMAP:
     def __init__(self, **kwargs) -> None:
         self.host = kwargs["host"]  # type: str
         self.port = kwargs.get("port", 993)  # type: int
@@ -51,77 +62,107 @@ class FetchImap:
         """Connect to IMAP server and login.
 
         Raises a MettmailFetch exception if anything fails.
-        Login and mailbox selection was successful if no exception is raised."""
-        logger.info(f"connecting to {self.host}")
-        self.client = aioimaplib.IMAP4_SSL(host=self.host, timeout=30)
+        Login and mailbox selection was successful if no exception is raised.
+        """
+        logger.debug(f"connecting to {self.host}")
+        self.client = aioimaplib.IMAP4_SSL(host=self.host, timeout=30)  # doesn't raise
 
         logger.trace("waiting for hello")
         try:
             await self.client.wait_hello_from_server()  # returns None
-        except TimeoutError as e:
-            raise MettmailFetchConnectError(f"hello timeout: {e}")
+            # NOTE aioimaplib doesn't catch OSErrors like socket.gaierror, not sure if this is my problem or theirs.
+            # currently this just leads to a timeouterror here.
+        except asyncio.TimeoutError:
+            raise MettmailFetchTimeoutError("hello timeout")
 
         logger.trace("logging in")
         try:
             response = await self.client.login(self.account["user"], self.account["password"])
-        except TimeoutError as e:
-            raise MettmailFetchConnectError(f"login timeout: {e}")
+        except asyncio.TimeoutError:
+            raise MettmailFetchTimeoutError("login timeout")
         if response.result != "OK":
             raise MettmailFetchAuthenticationError(f"login error: {response}")
 
         logger.trace("selecting mailbox")
         try:
             response = await self.client.select(self.account["mailbox"])
-        except TimeoutError as e:
-            raise MettmailFetchConnectError(f"select timeout: {e}")
+        except asyncio.TimeoutError:
+            raise MettmailFetchTimeoutError("select timeout")
         if response.result != "OK":
             raise MettmailFetchCommandFailed(f"select error: {response}")
         select_response = response
 
-        # TODO check if \* is in PERMANENTFLAGS: https://datatracker.ietf.org/doc/html/rfc3501#page-64
+        if not self.is_permanentflag_supported(select_response, b"\\*"):
+            msg = "server doesn't support custom FLAGS. these are required for mettmail to work."
+            raise MettmailFetchFeatureUnsupported(msg)
 
         logger.info(f"connected to {self.host}")
         logger.trace(f"server capabilities: {self.client.protocol.capabilities}")
         logger.trace(f"select response: {select_response}")
-        if not self.client.has_capability("IDLE"):
-            logger.warn("server doesn't support IDLE")
+        if not self.has_idle():
+            logger.warning("server doesn't support IDLE command")
 
         # uncomment for testing purposes to quickly remove our flag from all messages
         # await self.client.uid("store", "1:*", f"-FLAGS.SILENT ({CUSTOM_FLAG_FETCHED})")
 
-    def disconnect(self) -> None:
+    async def disconnect(self) -> None:
+        """Close IMAP connection."""
         if self.client:
-            self.client.logout()
+            logger.trace("logging out")
+            try:
+                response = await self.client.logout()
+            except asyncio.TimeoutError:
+                logger.trace("ignoring timeout while trying to logout")
+            except aioimaplib.aioimaplib.Abort:
+                logger.trace("ignoring error while trying to logout")
+            else:
+                if response.result != "OK":
+                    logger.debug(f"ignoring error trying to logout: {response}")
+                else:
+                    logger.trace("logged out")
+
+            self.client = None
+        else:
+            logger.trace("already logged out")
 
     async def run_idle_loop(self) -> None:
-        logger.info("ready for new messages")
+        """Run loop waiting for mails and delivering them as they arrive."""
         while True:
             logger.debug("-> enter IDLE")
-            idle_task = await self.client.idle_start(timeout=60)
+            idle_task = await self.client.idle_start(
+                timeout=60
+            )  # doesn't raise except for Abort which should fall through
 
             # wait for new messages
             new_uids = []  # type: List[int]
-            msgs = await self.client.wait_server_push()
-            for msg in msgs:
-                if msg.endswith(b"EXISTS"):
-                    uid = int(msg.split(b" ", 1)[0])
-                    logger.debug(f"(push) new message: {uid}")
-                    new_uids.append(uid)
-                elif msg.endswith(b"RECENT"):
-                    logger.trace(f"(push) new recent count: {msg}")
-                elif msg.endswith(b"EXPUNGE"):
-                    logger.trace(f"(push) message removed: {msg}")
-                elif b"FETCH" in msg and b"\Seen" in msg:
-                    logger.trace(f"(push) message seen {msg}")
-                else:
-                    logger.trace(f"(push) unprocessed message: {msg}")
+            try:
+                msgs = await self.client.wait_server_push()
+            except asyncio.TimeoutError:
+                # time to restart IDLE: https://www.imapwiki.org/ClientImplementation/Synchronization
+                logger.debug("leaving idle after timeout")
+            else:
+                # parse messages
+                for msg in msgs:
+                    if msg.endswith(b"EXISTS"):
+                        # new mails have arrived
+                        uid = int(msg.split(b" ", 1)[0])
+                        logger.debug(f"(push) new message: {uid}")
+                        new_uids.append(uid)
+                    elif msg.endswith(b"RECENT"):
+                        logger.trace(f"(push) new recent count: {msg}")
+                    elif msg.endswith(b"EXPUNGE"):
+                        logger.trace(f"(push) message removed: {msg}")
+                    elif b"FETCH" in msg and b"\Seen" in msg:
+                        logger.trace(f"(push) message seen {msg}")
+                    else:
+                        logger.trace(f"(push) unprocessed message: {msg}")
 
-            # end idle mode to fetch messages
+            # end idle mode (to fetch messages or because 29mins are over)
             self.client.idle_done()
-            await asyncio.wait_for(idle_task, timeout=5)
+            await asyncio.wait_for(idle_task, timeout=5)  # doesn't raise
             logger.debug("<- ending IDLE")
 
-            # process new messages
+            # process new messages if any
             if len(new_uids):
                 logger.debug(f"got {len(new_uids)} new messages")
 
@@ -145,7 +186,10 @@ class FetchImap:
         """
         logger.trace(f"fetching non-tagged mails")
 
-        response = await self.client.uid_search(f"UNKEYWORD {CUSTOM_FLAG_FETCHED}")
+        try:
+            response = await self.client.uid_search(f"UNKEYWORD {CUSTOM_FLAG_FETCHED}")
+        except asyncio.TimeoutError:
+            raise MettmailFetchTimeoutError("search timeout")
         if response.result != "OK":
             raise MettmailFetchCommandFailed(f"search failed: {response}")
 
@@ -178,8 +222,13 @@ class FetchImap:
         flag to indicate the message has been fetched.
         """
         logger.debug(f"-> fetching message {uid}")
+        start_time = time.time()
 
-        response = await self.client.uid("fetch", str(uid), "(FLAGS RFC822.SIZE BODY.PEEK[])")
+        # get mail
+        try:
+            response = await self.client.uid("fetch", str(uid), "(FLAGS RFC822.SIZE BODY.PEEK[])")
+        except asyncio.TimeoutError:
+            raise MettmailFetchTimeoutError("fetch timeout")
         if response.result != "OK":
             raise MettmailFetchCommandFailed(f"fetch failed: {response}")
 
@@ -214,19 +263,29 @@ class FetchImap:
         ok = False
         try:
             ok = self.deliverer.deliver_message(msg)
-        except MettmailDeliverException:
-            logger.exception("deliverer failed")
+        except MettmailDeliverException as err:
+            logger.error(f"deliverer failed: {err}")
             ok = False
 
+        # set flag
         if ok:
             # set fetched flag only on successful delivery (no exception + returned True)
-            await self.set_fetched_flag(uid)
+            await self.set_fetched_flag(
+                uid
+            )  # TODO how should we do error handling here? we can't un-deliver the mail.
 
-        logger.debug(f"-> done with message {uid}")
+        # done
+        end_time = time.time()
+        duration = end_time - start_time
+        logger.info(f"delivered message {uid} ({size} Bytes) in {duration:.3f} s")
+        logger.debug(f"<- done with message {uid}")
 
     async def set_fetched_flag(self, message_uid: int) -> None:
         """Mark mail with given UID as fetched."""
-        response = await self.client.uid("store", str(message_uid), f"+FLAGS.SILENT ({CUSTOM_FLAG_FETCHED})")
+        try:
+            response = await self.client.uid("store", str(message_uid), f"+FLAGS.SILENT ({CUSTOM_FLAG_FETCHED})")
+        except asyncio.TimeoutError:
+            raise MettmailFetchTimeoutError("store timeout")
         if response.result != "OK":
             raise MettmailFetchCommandFailed(f"failed marking uid {message_uid} fetched: {response}")
 
@@ -239,19 +298,22 @@ class FetchImap:
     def has_idle(self) -> bool:
         return self.client and self.client.has_capability("IDLE")
 
+    @staticmethod
+    def is_permanentflag_supported(response: aioimaplib.Response, wanted_flag: bytes) -> bool:
+        """Check if the given SELECT Response contains the wanted PERMANENTFLAGS.
 
-@logger.catch
-async def imap_loop(host: str, user: str, password: str, deliverer: DeliverBase) -> None:
-    fetcher = FetchImap(host=host, user=user, password=password, deliverer=deliverer)
-    await fetcher.connect()
+        This is used to check if the special flag \* is present which indicated that the client can create custom
+        message flags. Mettmail uses this feature to mark messages which have been delivered. Dovecot supports this
+        feature.
+        See: https://datatracker.ietf.org/doc/html/rfc3501#page-64
+        """
 
-    # initially fetch unflagged messages (and deliver them)
-    await fetcher.fetch_deliver_unflagged_messages()
+        big_line = b"".join(response.lines)
+        match = SELECT_PERMANENTFLAGS.match(big_line)
+        if not match:
+            logger.trace("regex didn't match")
+            return False
 
-    if not fetcher.has_idle():
-        logger.warn("fetch complete, ending because we can't IDLE")
-        fetcher.disconnect()
-        return
-
-    # fetch/deliver new messages as they arrive
-    await fetcher.run_idle_loop()
+        supported_pflags = match.group("permanent_flags").split(b" ")
+        logger.trace(f"supported_pflags={supported_pflags}")
+        return wanted_flag in supported_pflags

@@ -74,14 +74,12 @@ class DeliverLMTP(DeliverBase):
             self.client = smtplib.LMTP(
                 host=self.host, port=self.port, local_hostname=self.local_hostname, source_address=self.source_address
             )
-        except (smtplib.SMTPConnectError, smtplib.SMTPServerDisconnected):
-            err = "connection terminated"
-            logger.exception(err)
-            raise MettmailDeliverConnectError(err)
-        except smtplib.SMTPException:
-            err = "could not connect"
-            logger.exception(err)
-            raise MettmailDeliverConnectError(err)
+        except (smtplib.SMTPConnectError, smtplib.SMTPServerDisconnected) as err:
+            raise MettmailDeliverConnectError(f"connection terminated: {err}")
+        except smtplib.SMTPException as err:
+            raise MettmailDeliverConnectError(f"could not connect: {err}")
+        except OSError as err:
+            raise MettmailDeliverConnectError(f"socket error: {err}")
 
         logger.trace("sending LHLO")
         try:
@@ -106,7 +104,7 @@ class DeliverLMTP(DeliverBase):
     def deliver_message(self, message: bytearray) -> bool:
         from_addr = self.envelope_sender
         to_addr = self.envelope_recipient
-        logger.debug(f"sending message with size {len(message)} from=<{from_addr}> to=<{to_addr}>")
+        logger.debug(f"sending message: e_from=<{from_addr}> e_to=<{to_addr}> size={len(message)}")
 
         # send mail
         try:
