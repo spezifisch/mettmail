@@ -30,7 +30,7 @@ from fetch_imap import FetchIMAP
 @logger.catch
 async def mettmail_loop(fetcher: FetchIMAP) -> None:
     """Mettmail main loop that fetches mails as they arrive on IMAP and delivers them using LMTP.
-    
+
     TODO: retry logic, on any problem we currently just raise an exception and bail."""
     logger.info("connecting")
     try:
@@ -77,7 +77,7 @@ def run(debug: bool, trace: bool) -> None:
     # LMTP
     lmtp_host = "localhost"
     lmtp_port = 24
-    lmtp_envelope_recipient = "rxaff"
+    lmtp_envelope_recipient = "rxa"
     deliverer = DeliverLMTP(host=lmtp_host, port=lmtp_port, envelope_recipient=lmtp_envelope_recipient)
 
     # IMAP

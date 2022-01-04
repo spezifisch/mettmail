@@ -64,11 +64,7 @@ class DeliverLMTP(DeliverBase):
     def connect(self) -> None:
         if self.client is not None:
             logger.info("quitting leftover client")
-            try:
-                self.client.quit()
-            except smtplib.SMTPException:
-                logger.exception("tried to close still open client")
-            self.client = None
+            self.disconnect()
 
         logger.debug(f"connecting to {self.host}:{self.port}")
         try:
@@ -76,19 +72,17 @@ class DeliverLMTP(DeliverBase):
                 host=self.host, port=self.port, local_hostname=self.local_hostname, source_address=self.source_address
             )
         except (smtplib.SMTPConnectError, smtplib.SMTPServerDisconnected) as err:
-            raise MettmailDeliverConnectError(f"connection terminated: {err}")
+            raise MettmailDeliverConnectError(f"connection error: {err}")
         except smtplib.SMTPException as err:
-            raise MettmailDeliverConnectError(f"could not connect: {err}")
+            raise MettmailDeliverConnectError(f"smtp error: {err}")
         except OSError as err:
             raise MettmailDeliverConnectError(f"socket error: {err}")
 
         logger.trace("sending LHLO")
         try:
             self.client.ehlo()
-        except smtplib.SMTPHeloError:
-            err = "server refused LHLO"
-            logger.exception(err)
-            raise MettmailDeliverCommandFailed(err)
+        except smtplib.SMTPHeloError as err:
+            raise MettmailDeliverCommandFailed(f"LHLO failed: {err}")
 
     def disconnect(self) -> None:
         if self.client:
@@ -119,7 +113,7 @@ class DeliverLMTP(DeliverBase):
         except:
             # catch all exception and make sure we leave this function
             err = "general exception while sending"
-            logger.exception(err)
+            logger.exception(err)  # make sure we get the backtrace
             raise MettmailDeliverCommandFailed("general smtp failure")
 
         logger.trace(f"sendmail response: {response}")
@@ -146,7 +140,8 @@ class DeliverLMTP(DeliverBase):
 @logger.catch
 async def lmtp_test(host, port, recipient) -> bool:
     msg = bytearray(
-        b"From: noreply.foo@mailgen.example.com\r\nTo: foo@testcot\r\nSubject: test mail 1641157914 to foo\r\nDate: Sun, 02 Jan 2022 21:11:54 +0000\r\n\r\nthis is content\r\n"
+        b"From: noreply.foo@mailgen.example.com\r\nTo: foo@testcot\r\nSubject: test mail 1641157914 to foo\r\n"
+        + b"Date: Sun, 02 Jan 2022 21:11:54 +0000\r\n\r\nthis is content\r\n"
     )
 
     lmtp = DeliverLMTP(host=host, port=port, envelope_recipient=recipient)
