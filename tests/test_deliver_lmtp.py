@@ -1,3 +1,4 @@
+# type: ignore
 """
 This file is part of mettmail (https://github.com/spezifisch/mettmail).
 Copyright (c) 2022 spezifisch (https://github.com/spezifisch)
@@ -16,8 +17,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import unittest
+from socket import gaierror
+from smtplib import SMTPException, SMTPHeloError, SMTPNotSupportedError, SMTPRecipientsRefused, SMTPServerDisconnected
 from unittest.mock import patch
 
+from mettmail.deliver_lmtp import DeliverLMTP
 from mettmail.exceptions import *
 
 
@@ -36,8 +40,6 @@ class TestDeliverLMTP(unittest.TestCase):
             # empty dict means success
             mock_object.sendmail.return_value = {}
 
-            from mettmail.deliver_lmtp import DeliverLMTP
-
             lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
 
             lmtp.connect()
@@ -49,6 +51,7 @@ class TestDeliverLMTP(unittest.TestCase):
             name, args, kwargs = mock.method_calls.pop(0)
             assert name == "().ehlo"
 
+            # send mail
             delivery_ok = lmtp.deliver_message(self.TEST_MAIL_MSG)
             mock_object.sendmail.assert_called_once()
             name, args, kwargs = mock.method_calls.pop(0)
@@ -58,6 +61,7 @@ class TestDeliverLMTP(unittest.TestCase):
             assert b"this is content" in kwargs.get("msg")
             assert delivery_ok == True
 
+            # quit
             lmtp.disconnect()
             mock_object.quit.assert_called_once()
             name, args, kwargs = mock.method_calls.pop(0)
@@ -65,8 +69,6 @@ class TestDeliverLMTP(unittest.TestCase):
 
     def test_invalid_constructor_args(self) -> None:
         with patch("smtplib.LMTP", autospec=True) as mock:
-            from mettmail.deliver_lmtp import DeliverLMTP
-
             with self.assertRaises(ValueError):
                 DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient="")
 
@@ -89,14 +91,135 @@ class TestDeliverLMTP(unittest.TestCase):
                     envelope_sender=None,
                 )
 
-    def test_fail_connect(self) -> None:
-        with patch("smtplib.LMTP", autospec=True, side_effect=OSError("test")) as mock:
-            from mettmail.deliver_lmtp import DeliverLMTP
+    def test_state_errors(self) -> None:
+        with patch("smtplib.LMTP", autospec=True) as mock:
+            lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
 
-            host = "invalid.example.com"
-            port = 24
-            recipient = "foo@invalid2.example.com"
-            lmtp = DeliverLMTP(host=host, port=port, envelope_recipient=recipient)
+            # shouldn't to anything because we're not connected yet
+            lmtp.disconnect()
+            mock.return_value.quit.assert_not_called()
 
+            with self.assertRaises(MettmailDeliverStateError) as ctx:
+                lmtp.deliver_message(self.TEST_MAIL_MSG)
+            assert "tried to deliver" in str(ctx.exception)
+
+            lmtp.connect()
+            mock.assert_called_once_with(
+                host=self.TEST_HOST, port=self.TEST_PORT, local_hostname=None, source_address=None
+            )
+
+            # check double connect safeguard
+            lmtp.connect()
+            mock.return_value.quit.assert_called_once()
+
+            # add quit exception
+            mock.return_value.quit.side_effect = SMTPException("test")
+            lmtp.disconnect()
+
+    def test_fail_connect_errors(self) -> None:
+        with patch("smtplib.LMTP", autospec=True, side_effect=gaierror("test")) as mock:
+            lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
             with self.assertRaises(MettmailDeliverConnectError):
                 lmtp.connect()
+
+        with patch("smtplib.LMTP", autospec=True, side_effect=OSError("test")) as mock:
+            lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
+            with self.assertRaises(MettmailDeliverConnectError):
+                lmtp.connect()
+
+        with patch("smtplib.LMTP", autospec=True, side_effect=SMTPServerDisconnected("test")) as mock:
+            lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
+            with self.assertRaises(MettmailDeliverConnectError):
+                lmtp.connect()
+
+        with patch("smtplib.LMTP", autospec=True, side_effect=SMTPNotSupportedError("test")) as mock:
+            lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
+            with self.assertRaises(MettmailDeliverConnectError):
+                lmtp.connect()
+
+        with patch("smtplib.LMTP", autospec=True) as mock:
+            mock.return_value.ehlo.side_effect = SMTPHeloError(123, "test")
+
+            lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
+
+            with self.assertRaises(MettmailDeliverCommandFailed):
+                lmtp.connect()
+
+    def test_class_fudgery(self) -> None:
+        with patch("smtplib.LMTP", autospec=True) as mock:
+            lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
+            lmtp.connect()
+
+            lmtp.envelope_recipient = None
+
+            with self.assertRaises(MettmailDeliverStateError) as ctx:
+                lmtp.deliver_message(self.TEST_MAIL_MSG)
+            assert "must be set" in str(ctx.exception)
+
+    def test_delivery_errors(self) -> None:
+        # recipients refused
+        with patch("smtplib.LMTP", autospec=True) as mock:
+            mock_object = mock.return_value
+            # normal behaviour: exception raised AND dict returned
+            mock_object.sendmail.return_value = {self.TEST_RECIPIENT: (123, "test")}
+            mock.return_value.sendmail.side_effect = SMTPRecipientsRefused("abc")
+
+            lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
+            lmtp.connect()
+
+            with self.assertRaises(MettmailDeliverRecipientRefused) as ctx:
+                lmtp.deliver_message(self.TEST_MAIL_MSG)
+            assert "recipient refused" in str(ctx.exception)
+
+        # connection dropped
+        with patch("smtplib.LMTP", autospec=True) as mock:
+            mock_object = mock.return_value
+            # normal behaviour: exception raised AND dict returned
+            mock_object.sendmail.return_value = {self.TEST_RECIPIENT: (123, "test")}
+            mock.return_value.sendmail.side_effect = SMTPServerDisconnected("abc")
+
+            lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
+            lmtp.connect()
+
+            with self.assertRaises(MettmailDeliverCommandFailed) as ctx:
+                lmtp.deliver_message(self.TEST_MAIL_MSG)
+            assert "smtp failure" in str(ctx.exception)
+
+        # socket stuff
+        with patch("smtplib.LMTP", autospec=True) as mock:
+            mock_object = mock.return_value
+            # kinda abnormal behaviour
+            mock_object.sendmail.return_value = {}
+            mock.return_value.sendmail.side_effect = OSError("test")
+
+            lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
+            lmtp.connect()
+
+            with self.assertRaises(MettmailDeliverCommandFailed) as ctx:
+                lmtp.deliver_message(self.TEST_MAIL_MSG)
+            assert "general smtp failure" == str(ctx.exception)
+
+        # test weird stuff just in case
+        with patch("smtplib.LMTP", autospec=True) as mock:
+            mock_object = mock.return_value
+            # abnormal behaviour: exception NOT raised but dict returned
+            mock_object.sendmail.return_value = {self.TEST_RECIPIENT: (123, "test")}
+
+            lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
+            lmtp.connect()
+
+            with self.assertRaises(MettmailDeliverCommandFailed) as ctx:
+                lmtp.deliver_message(self.TEST_MAIL_MSG)
+            assert "sending failed" in str(ctx.exception)
+
+        with patch("smtplib.LMTP", autospec=True) as mock:
+            mock_object = mock.return_value
+            # abnormal behaviour: exception not raised and non-dict returned (isn't possible)
+            mock_object.sendmail.return_value = 123
+
+            lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
+            lmtp.connect()
+
+            with self.assertRaises(MettmailDeliverInconsistentResponse) as ctx:
+                lmtp.deliver_message(self.TEST_MAIL_MSG)
+            assert "not a dict" in str(ctx.exception)
