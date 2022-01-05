@@ -16,12 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-
-import asyncio
 import smtplib
-import sys
 from typing import Optional, Tuple
-from typing_extensions import TypedDict
 
 from loguru import logger
 
@@ -29,7 +25,6 @@ from .deliver_base import DeliverBase
 from .exceptions import (
     MettmailDeliverCommandFailed,
     MettmailDeliverConnectError,
-    MettmailDeliverException,
     MettmailDeliverInconsistentResponse,
     MettmailDeliverRecipientRefused,
     MettmailDeliverStateError,
@@ -133,7 +128,7 @@ class DeliverLMTP(DeliverBase):
         logger.trace(f"sendmail response: {response}")
         # sanity check
         if not isinstance(response, dict):
-            raise MettmailDeliverInconsistentResponse("not a dict")
+            raise MettmailDeliverInconsistentResponse(f"not a dict: {response}")
 
         if len(response) == 0:
             logger.trace("delivery successful")
@@ -149,39 +144,3 @@ class DeliverLMTP(DeliverBase):
             return True  # delivery successful
         else:
             raise MettmailDeliverCommandFailed(f"sending failed, server returned: {response}")
-
-
-@logger.catch
-async def lmtp_test(host: str, port: int, recipient: str) -> bool:
-    msg = bytearray(
-        b"From: noreply.foo@mailgen.example.com\r\nTo: foo@testcot\r\nSubject: test mail 1641157914 to foo\r\n"
-        + b"Date: Sun, 02 Jan 2022 21:11:54 +0000\r\n\r\nthis is content\r\n"
-    )
-
-    lmtp = DeliverLMTP(host=host, port=port, envelope_recipient=recipient)
-    try:
-        lmtp.connect()
-    except MettmailDeliverException:
-        logger.exception("failed connecting to deliver mail")
-        return False
-
-    delivery_ok = False
-
-    try:
-        delivery_ok = lmtp.deliver_message(msg)
-    except MettmailDeliverException:
-        logger.exception("failed delivering mail")
-    finally:
-        logger.info(f"delivery_ok={delivery_ok}")
-
-    lmtp.disconnect()
-
-    return delivery_ok
-
-
-if __name__ == "__main__":
-    logger.remove()
-    logger.add(sys.stderr, level="TRACE")
-
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(lmtp_test("localhost", 24, "rxa"))
