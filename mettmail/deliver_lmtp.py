@@ -104,10 +104,10 @@ class DeliverLMTP(DeliverBase):
             logger.trace("already disconnected")
 
     def deliver_message(self, message: bytearray) -> bool:
+        assert self.envelope_recipient
+        assert self.envelope_sender
         if self.client is None:
             raise MettmailDeliverStateError("tried to deliver while client is not connected")
-        if self.envelope_recipient is None:
-            raise MettmailDeliverStateError("envelope_recipient must be set")
 
         from_addr = self.envelope_sender
         to_addr = self.envelope_recipient
@@ -126,10 +126,7 @@ class DeliverLMTP(DeliverBase):
             raise MettmailDeliverCommandFailed("general smtp failure")
 
         logger.trace(f"sendmail response: {response}")
-        # sanity check
-        if not isinstance(response, dict):
-            raise MettmailDeliverInconsistentResponse(f"not a dict: {response}")
-
+        assert isinstance(response, dict)
         if len(response) == 0:
             logger.trace("delivery successful")
             # Quote: https://docs.python.org/3/library/smtplib.html#smtplib.SMTP.sendmail

@@ -30,6 +30,7 @@ line-length = 119
 source = ["mettmail"]
 
 [tool.coverage.report]
+exclude_lines = ["@abstractmethod", "@abc.abstractmethod", "if __name__ == .__main__.:"]
 show_missing = true
 
 [tool.mypy]

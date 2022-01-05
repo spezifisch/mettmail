@@ -152,9 +152,8 @@ class TestDeliverLMTP(unittest.TestCase):
 
             lmtp.envelope_recipient = None
 
-            with self.assertRaises(MettmailDeliverStateError) as ctx:
+            with self.assertRaises(AssertionError):
                 lmtp.deliver_message(self.TEST_MAIL_MSG)
-            assert "must be set" in str(ctx.exception)
 
     def test_delivery_errors(self) -> None:
         # recipients refused
@@ -220,6 +219,5 @@ class TestDeliverLMTP(unittest.TestCase):
             lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
             lmtp.connect()
 
-            with self.assertRaises(MettmailDeliverInconsistentResponse) as ctx:
+            with self.assertRaises(AssertionError):
                 lmtp.deliver_message(self.TEST_MAIL_MSG)
-            assert "not a dict" in str(ctx.exception)
