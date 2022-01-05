@@ -1,21 +1,24 @@
 [tool.poetry]
-name = "mettmail"
-version = "0.1.0"
-description = "get mail from IMAP server with IDLE extension and deliver to LMTP server, nothing else"
 authors = ["spezifisch <spezifisch-gpl.7e6@below.fr>"]
-repository = "https://github.com/spezifisch/mettmail"
+description = "get mail from IMAP server with IDLE extension and deliver to LMTP server, nothing else"
 license = "GPLv3"
+name = "mettmail"
+repository = "https://github.com/spezifisch/mettmail"
+version = "0.1.0"
 
 [tool.poetry.dependencies]
-python = "^3.6.2"
 aioimaplib = {git = "https://github.com/bamthomas/aioimaplib", rev = "d417343"}
-loguru = "^0.5.3"
 click = "^8.0.3"
+loguru = "^0.5.3"
+python = "^3.6.2"
 
 [tool.poetry.dev-dependencies]
-pytest = "^5.2"
 black = "^21.12b0"
+coverage = {extras = ["toml"], version = "^6.2"}
+loguru-mypy = "^0.0.4"
+mypy = "^0.930"
 pre-commit = "^2.16.0"
+pytest = "^6.2.5"
 
 [tool.poetry.scripts]
 mettmail = "mettmail.mettmail:run"
@@ -23,6 +26,23 @@ mettmail = "mettmail.mettmail:run"
 [tool.black]
 line-length = 119
 
+[tool.coverage.run]
+source = ["mettmail"]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.mypy]
+plugins = "loguru_mypy"
+
+[[tool.mypy.overrides]]
+ignore_missing_imports = true
+module = [
+  "aioimaplib",
+]
+strict = true
+warn_return_any = false
+
 [build-system]
-requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=1.0.0"]

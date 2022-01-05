@@ -78,3 +78,7 @@ class MettmailDeliverCommandFailed(MettmailDeliverException):
 
 class MettmailDeliverRecipientRefused(MettmailDeliverException):
     pass
+
+
+class MettmailDeliverStateError(MettmailDeliverException):
+    pass

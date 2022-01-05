@@ -1,3 +1,4 @@
+# type: ignore
 """
 This file is part of mettmail (https://github.com/spezifisch/mettmail).
 Copyright (c) 2022 spezifisch (https://github.com/spezifisch)
@@ -15,18 +16,19 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import abc
+import nox
 
 
-class DeliverBase(abc.ABC):
-    @abc.abstractmethod
-    def connect(self) -> None:
-        pass
+@nox.session(python=["3.6", "3.7", "3.8", "3.9", "3.10"])
+def tests(session):
+    session.install("poetry")
+    session.run("poetry", "install")
+    session.run("coverage", "run", "-m", "pytest")
+    session.run("coverage", "report")
 
-    @abc.abstractmethod
-    def disconnect(self) -> None:
-        pass
 
-    @abc.abstractmethod
-    def deliver_message(self, message: bytearray) -> bool:
-        return False
+@nox.session
+def typing(session):
+    session.install("poetry")
+    session.run("poetry", "install")
+    session.run("mypy", "--strict", ".")

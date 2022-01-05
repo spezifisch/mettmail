@@ -20,7 +20,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import asyncio
 import smtplib
 import sys
-from typing import Optional
+from typing import Optional, Tuple
+from typing_extensions import TypedDict
 
 from loguru import logger
 
@@ -31,6 +32,7 @@ from .exceptions import (
     MettmailDeliverException,
     MettmailDeliverInconsistentResponse,
     MettmailDeliverRecipientRefused,
+    MettmailDeliverStateError,
 )
 
 
@@ -41,20 +43,28 @@ class DeliverLMTP(DeliverBase):
     # value should be irrelevant.
     DEFAULT_SENDER = "mettmail@localhost"
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(
+        self,
+        host: str,
+        envelope_recipient: str,
+        port: int = smtplib.LMTP_PORT,
+        envelope_sender: str = DEFAULT_SENDER,
+        local_hostname: Optional[str] = None,
+        source_address: Optional[Tuple[str, int]] = None,
+    ) -> None:
         # smtplib.LMTP.connect() parameters
-        self.host = kwargs["host"]  # type: str
-        self.port = kwargs.get("port", None)  # type: Optional[int]
-        self.local_hostname = kwargs.get("local_hostname", None)  # type: Optional[str]
-        self.source_address = kwargs.get("source_address", None)  # type: Optional[str]
+        self.host = host  # type: str
+        self.port = port  # type: int
+        self.local_hostname = local_hostname  # type: Optional[str]
+        self.source_address = source_address  # type: Optional[Tuple[str, int]]
 
         # envelope recipient address (required). all mail is delivered to one single pre-defined recipient
-        self.envelope_recipient = kwargs.get("envelope_recipient")  # type: str
+        self.envelope_recipient = envelope_recipient  # type: str
         if not self.envelope_recipient or not isinstance(self.envelope_recipient, str):
             raise ValueError(f"envelope_recipient parameter is required. invalid recipient: {self.envelope_recipient}")
 
         # envelope sender address
-        self.envelope_sender = kwargs.get("envelope_sender", self.DEFAULT_SENDER)  # type: str
+        self.envelope_sender = envelope_sender  # type: str
         if not self.envelope_sender or not isinstance(self.envelope_sender, str):
             raise ValueError(f"invalid sender: {self.envelope_sender}")
 
@@ -99,6 +109,11 @@ class DeliverLMTP(DeliverBase):
             logger.trace("already disconnected")
 
     def deliver_message(self, message: bytearray) -> bool:
+        if self.client is None:
+            raise MettmailDeliverStateError("tried to deliver while client is not connected")
+        if self.envelope_recipient is None:
+            raise MettmailDeliverStateError("envelope_recipient must be set")
+
         from_addr = self.envelope_sender
         to_addr = self.envelope_recipient
         logger.debug(f"sending message: e_from=<{from_addr}> e_to=<{to_addr}> size={len(message)}")
@@ -112,8 +127,7 @@ class DeliverLMTP(DeliverBase):
             raise MettmailDeliverCommandFailed(f"smtp failure: {err}")
         except:
             # catch all exception and make sure we leave this function
-            err = "general exception while sending"
-            logger.exception(err)  # make sure we get the backtrace
+            logger.exception("general exception while sending")  # make sure we get the backtrace
             raise MettmailDeliverCommandFailed("general smtp failure")
 
         logger.trace(f"sendmail response: {response}")
@@ -138,7 +152,7 @@ class DeliverLMTP(DeliverBase):
 
 
 @logger.catch
-async def lmtp_test(host, port, recipient) -> bool:
+async def lmtp_test(host: str, port: int, recipient: str) -> bool:
     msg = bytearray(
         b"From: noreply.foo@mailgen.example.com\r\nTo: foo@testcot\r\nSubject: test mail 1641157914 to foo\r\n"
         + b"Date: Sun, 02 Jan 2022 21:11:54 +0000\r\n\r\nthis is content\r\n"

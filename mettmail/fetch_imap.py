@@ -47,15 +47,23 @@ bCUSTOM_FLAG_FETCHED = CUSTOM_FLAG_FETCHED.encode()
 
 
 class FetchIMAP:
-    def __init__(self, **kwargs) -> None:
-        self.host = kwargs["host"]  # type: str
-        self.port = kwargs.get("port", 993)  # type: int
+    def __init__(
+        self,
+        host: str,
+        deliverer: DeliverBase,
+        port: int = aioimaplib.IMAP4_SSL_PORT,
+        user: str = "",
+        password: str = "",
+        mailbox: str = "INBOX",
+    ) -> None:
+        self.host = host  # type: str
+        self.port = port  # type: int
         self.account = {
-            "user": kwargs.get("user"),
-            "password": kwargs.get("password"),
-            "mailbox": kwargs.get("mailbox", "INBOX"),
+            "user": user,
+            "password": password,
+            "mailbox": mailbox,
         }
-        self.deliverer = kwargs["deliverer"]  # type: DeliverBase
+        self.deliverer = deliverer  # type: DeliverBase
 
         self.client = None  # type: Optional[aioimaplib.IMAP4_SSL]
 
@@ -128,6 +136,9 @@ class FetchIMAP:
 
     async def run_idle_loop(self) -> None:
         """Run loop waiting for mails and delivering them as they arrive."""
+        if self.client is None:
+            raise MettmailFetchStateError("called without being connected")
+
         while True:
             logger.debug("-> enter IDLE")
             idle_task = await self.client.idle_start(
@@ -185,8 +196,10 @@ class FetchIMAP:
         fail-safe way so that it is guaranteed that only MettmailFetched-flagged messages have been delivered to their
         target.
         """
-        logger.trace(f"fetching non-tagged mails")
+        if self.client is None:
+            raise MettmailFetchStateError("called without being connected")
 
+        logger.trace(f"fetching non-tagged mails")
         try:
             response = await self.client.uid_search(f"UNKEYWORD {CUSTOM_FLAG_FETCHED}")
         except asyncio.TimeoutError:
@@ -222,6 +235,9 @@ class FetchIMAP:
         The message is delivered to the destination server by `deliver_message()`. Only if this is successful we set the
         flag to indicate the message has been fetched.
         """
+        if self.client is None:
+            raise MettmailFetchStateError("called without being connected")
+
         logger.debug(f"-> fetching message {uid}")
         start_time = time.time()
 
@@ -242,17 +258,21 @@ class FetchIMAP:
 
         # parse response
         fetch_command_without_literal = b"%s %s" % (response.lines[0], response.lines[2])
-        logger.trace(f"command: {fetch_command_without_literal}")
+        logger.trace(f"command: {fetch_command_without_literal!r}")
         try:
             # check flags (new messages might be added to the mailbox that already have the "..fetched" flag)
-            flags = FETCH_MESSAGE_DATA_FLAGS.match(fetch_command_without_literal).group("flags")
+            match = FETCH_MESSAGE_DATA_FLAGS.match(fetch_command_without_literal)
+            assert match is not None
+            flags = match.group("flags")
             if bCUSTOM_FLAG_FETCHED in flags.split(b" "):
                 logger.debug(f"-> done with message {uid}, skipping because already flagged")
                 return
 
             # get reported message size
-            size = int(FETCH_MESSAGE_DATA_SIZE.match(fetch_command_without_literal).group("size"))
-        except (AttributeError, ValueError):
+            match = FETCH_MESSAGE_DATA_SIZE.match(fetch_command_without_literal)
+            assert match is not None
+            size = int(match.group("size"))
+        except AssertionError:
             raise MettmailFetchParserError(f"got response: {response}")
 
         # sanity check for message size
@@ -287,6 +307,9 @@ class FetchIMAP:
 
     async def set_fetched_flag(self, message_uid: int) -> None:
         """Mark mail with given UID as fetched."""
+        if self.client is None:
+            raise MettmailFetchStateError("called without being connected")
+
         try:
             response = await self.client.uid("store", str(message_uid), f"+FLAGS.SILENT ({CUSTOM_FLAG_FETCHED})")
         except asyncio.TimeoutError:
@@ -301,7 +324,7 @@ class FetchIMAP:
             raise MettmailFetchUnexpectedResponse(f"expected completed string, got response: {response}")
 
     def has_idle(self) -> bool:
-        return self.client and self.client.has_capability("IDLE")
+        return self.client is not None and self.client.has_capability("IDLE")
 
     @staticmethod
     def is_permanentflag_supported(response: aioimaplib.Response, wanted_flag: bytes) -> bool:
