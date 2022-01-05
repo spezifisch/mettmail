@@ -22,9 +22,9 @@ import sys
 import click
 from loguru import logger
 
-from deliver_lmtp import DeliverLMTP
-from exceptions import MettmailDeliverException, MettmailFetchAuthenticationError, MettmailFetchException
-from fetch_imap import FetchIMAP
+from .deliver_lmtp import DeliverLMTP
+from .exceptions import MettmailDeliverException, MettmailFetchAuthenticationError, MettmailFetchException
+from .fetch_imap import FetchIMAP
 
 
 @logger.catch

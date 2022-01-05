@@ -25,8 +25,8 @@ from typing import List, Optional
 import aioimaplib
 from loguru import logger
 
-from deliver_base import DeliverBase
-from exceptions import (
+from .deliver_base import DeliverBase
+from .exceptions import (
     MettmailDeliverException,
     MettmailFetchAuthenticationError,
     MettmailFetchCommandFailed,

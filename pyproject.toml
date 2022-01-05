@@ -13,7 +13,12 @@ loguru = "^0.5.3"
 click = "^8.0.3"
 
 [tool.poetry.dev-dependencies]
+pytest = "^5.2"
 black = "^21.12b0"
+pre-commit = "^2.16.0"
+
+[tool.poetry.scripts]
+mettmail = "mettmail.mettmail:run"
 
 [tool.black]
 line-length = 119

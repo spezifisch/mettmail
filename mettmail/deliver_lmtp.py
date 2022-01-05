@@ -24,8 +24,8 @@ from typing import Optional
 
 from loguru import logger
 
-from deliver_base import DeliverBase
-from exceptions import (
+from .deliver_base import DeliverBase
+from .exceptions import (
     MettmailDeliverCommandFailed,
     MettmailDeliverConnectError,
     MettmailDeliverException,
