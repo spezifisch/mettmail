@@ -74,7 +74,7 @@ class FetchIMAP:
         Login and mailbox selection was successful if no exception is raised.
         """
         logger.debug(f"connecting to {self.host}")
-        self.client = aioimaplib.IMAP4_SSL(host=self.host, timeout=30)  # doesn't raise
+        self.client = aioimaplib.IMAP4_SSL(host=self.host, port=self.port, timeout=30)  # doesn't raise
 
         logger.trace("waiting for hello")
         try:
@@ -164,7 +164,7 @@ class FetchIMAP:
                         logger.trace(f"(push) new recent count: {msg}")
                     elif msg.endswith(b"EXPUNGE"):
                         logger.trace(f"(push) message removed: {msg}")
-                    elif b"FETCH" in msg and b"\Seen" in msg:
+                    elif b"FETCH" in msg and b"\\Seen" in msg:
                         logger.trace(f"(push) message seen {msg}")
                     else:
                         logger.trace(f"(push) unprocessed message: {msg}")
@@ -330,9 +330,10 @@ class FetchIMAP:
     def is_permanentflag_supported(response: aioimaplib.Response, wanted_flag: bytes) -> bool:
         """Check if the given SELECT Response contains the wanted PERMANENTFLAGS.
 
-        This is used to check if the special flag \* is present which indicated that the client can create custom
-        message flags. Mettmail uses this feature to mark messages which have been delivered. Dovecot supports this
-        feature.
+        This is used to check if the special flag \\* (backslash asterisk) is present which indicated that the client
+        can create custom message flags. Mettmail uses this feature to mark messages which have been delivered.
+        Dovecot supports this feature.
+
         See: https://datatracker.ietf.org/doc/html/rfc3501#page-64
         """
 

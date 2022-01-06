@@ -25,7 +25,6 @@ from .deliver_base import DeliverBase
 from .exceptions import (
     MettmailDeliverCommandFailed,
     MettmailDeliverConnectError,
-    MettmailDeliverInconsistentResponse,
     MettmailDeliverRecipientRefused,
     MettmailDeliverStateError,
 )
@@ -86,7 +85,7 @@ class DeliverLMTP(DeliverBase):
         logger.trace("sending LHLO")
         try:
             self.client.ehlo()
-        except smtplib.SMTPHeloError as err:
+        except smtplib.SMTPException as err:
             raise MettmailDeliverCommandFailed(f"LHLO failed: {err}")
 
     def disconnect(self) -> None:

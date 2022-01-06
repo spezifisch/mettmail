@@ -25,7 +25,8 @@ poetry install
 ### Build Dependencies
 
 * [poetry](https://python-poetry.org/)
-* [nox](https://nox.thea.codes/en/stable/) as test-runner
+* [nox](https://nox.thea.codes/) as test-runner
+* [pyenv](https://github.com/pyenv/pyenv) (recommended) to manage python versions
 
 Install dependencies and pre-commit hooks:
 
