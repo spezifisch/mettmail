@@ -20,8 +20,10 @@ import asyncio
 import sys
 
 import click
+import strictyaml
 from loguru import logger
 
+from .config_schema import MettmailSchema
 from .deliver_lmtp import DeliverLMTP
 from .exceptions import MettmailDeliverException, MettmailFetchAuthenticationError, MettmailFetchException
 from .fetch_imap import FetchIMAP
@@ -63,9 +65,10 @@ async def mettmail_loop(fetcher: FetchIMAP) -> None:
 
 
 @click.command()
+@click.option("--config", default="mettmail.yaml", help="Config file")
 @click.option("--debug", default=False, is_flag=True, help="Set loglevel to DEBUG")
 @click.option("--trace", default=False, is_flag=True, help="Set loglevel to TRACE")
-def run(debug: bool, trace: bool) -> None:
+def run(config: str, debug: bool, trace: bool) -> None:
     logger.remove()
     if trace:
         logger.add(sys.stderr, level="TRACE")
@@ -74,17 +77,21 @@ def run(debug: bool, trace: bool) -> None:
     else:
         logger.add(sys.stderr, level="INFO")
 
+    # load config file
+    try:
+        args = strictyaml.load(open(config, "r").read(), schema=MettmailSchema, label=config)
+    except OSError as err:
+        print(f"couldn't load config file: {err}")
+        return
+    except strictyaml.YAMLError as err:
+        print(err)
+        return
+
     # LMTP
-    lmtp_host = "localhost"
-    lmtp_port = 24
-    lmtp_envelope_recipient = "rxa"
-    deliverer = DeliverLMTP(host=lmtp_host, port=lmtp_port, envelope_recipient=lmtp_envelope_recipient)
+    deliverer = DeliverLMTP(**args.data["lmtp"])
 
     # IMAP
-    imap_host = "localhost"
-    imap_user = "foo"
-    imap_password = "pass"
-    fetcher = FetchIMAP(host=imap_host, user=imap_user, password=imap_password, deliverer=deliverer)
+    fetcher = FetchIMAP(**args.data["imap"], deliverer=deliverer)
 
     # run mettmail_loop until an error occurs
     loop = asyncio.get_event_loop()

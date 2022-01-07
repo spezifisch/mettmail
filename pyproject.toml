@@ -11,6 +11,7 @@ aioimaplib = {git = "https://github.com/bamthomas/aioimaplib", rev = "d417343"}
 click = "^8.0.3"
 loguru = "^0.5.3"
 python = "^3.8.0"
+strictyaml = "^1.6.1"
 
 [tool.poetry.dev-dependencies]
 black = "^21.12b0"

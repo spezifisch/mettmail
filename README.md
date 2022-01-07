@@ -17,6 +17,16 @@ poetry install --no-root
 
 ## Run
 
+Create configuration file based on the example:
+
+```shell
+cp mettmail.example.yaml mettmail.yaml
+```
+
+Edit it with your IMAP/LMTP connection details. You can override most of `DeliverLMTP` and `FetchIMAP` constructor parameters.
+
+Run parameters:
+
 ```shell
 poetry run mettmail --help
 ```

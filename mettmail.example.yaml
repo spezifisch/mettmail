@@ -1,0 +1,9 @@
+imap:
+    host: localhost
+    port: 993
+    user: a
+    password: pass
+lmtp:
+    host: localhost
+    port: 24
+    envelope_recipient: rxa
