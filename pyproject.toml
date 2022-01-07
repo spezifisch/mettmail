@@ -10,7 +10,7 @@ version = "0.1.0"
 aioimaplib = {git = "https://github.com/bamthomas/aioimaplib", rev = "d417343"}
 click = "^8.0.3"
 loguru = "^0.5.3"
-python = "^3.6.2"
+python = "^3.8.0"
 
 [tool.poetry.dev-dependencies]
 black = "^21.12b0"

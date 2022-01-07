@@ -19,8 +19,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import asyncio
 import unittest
 from socket import gaierror
-from unittest.mock import PropertyMock, patch
+from unittest.mock import AsyncMock, PropertyMock, patch
 
+import aioimaplib
 from aioimaplib import Response
 
 from mettmail.deliver_base import DeliverBase
@@ -48,10 +49,6 @@ class TestFetchIMAP(unittest.IsolatedAsyncioTestCase):
     TEST_USER = "foo"
     TEST_PASSWORD = "secret"
     TEST_MAILBOX = "foobar"
-    TEST_MAIL_MSG = bytearray(
-        b"From: noreply.foo@mailgen.example.com\r\nTo: foo@testcot\r\nSubject: test mail 1641157914 to foo\r\n"
-        + b"Date: Sun, 02 Jan 2022 21:11:54 +0000\r\n\r\nthis is content\r\n"
-    )
 
     # responses from Dovecot v2.3.13
     DOVECOT_SELECT_LINES = [
@@ -78,7 +75,7 @@ class TestFetchIMAP(unittest.IsolatedAsyncioTestCase):
         mock_object.logout.return_value = Response("OK", [])
         mock_object.protocol = PropertyMock(return_value=[])
 
-        self.response_bad = Response("BAD", [])
+        self.response_no = Response("NO", [])
         self.deliver_mock = DeliverMock(return_deliver_message=True)
 
     async def test_success(self) -> None:
@@ -152,7 +149,7 @@ class TestFetchIMAP(unittest.IsolatedAsyncioTestCase):
 
     async def test_connect_failed_login(self) -> None:
         mock_object = self.mock_aioimaplib.return_value
-        mock_object.login.return_value = self.response_bad
+        mock_object.login.return_value = self.response_no
         imap = FetchIMAP(
             host=self.TEST_HOST,
             deliverer=self.deliver_mock,
@@ -176,7 +173,7 @@ class TestFetchIMAP(unittest.IsolatedAsyncioTestCase):
 
     async def test_connect_failed_select(self) -> None:
         mock_object = self.mock_aioimaplib.return_value
-        mock_object.select.return_value = self.response_bad
+        mock_object.select.return_value = self.response_no
         imap = FetchIMAP(
             host=self.TEST_HOST,
             deliverer=self.deliver_mock,
@@ -225,3 +222,89 @@ class TestFetchIMAP(unittest.IsolatedAsyncioTestCase):
 
         await imap.connect()
         mock_object.has_capability.assert_called_once_with("IDLE")
+
+    async def test_disconnect_timeout(self) -> None:
+        mock_object = self.mock_aioimaplib.return_value
+        mock_object.logout.side_effect = asyncio.TimeoutError()
+        imap = FetchIMAP(
+            host=self.TEST_HOST,
+            deliverer=self.deliver_mock,
+        )
+
+        await imap.connect()
+        await imap.disconnect()
+        assert imap.client is None
+
+    async def test_disconnect_abort(self) -> None:
+        mock_object = self.mock_aioimaplib.return_value
+        mock_object.logout.side_effect = aioimaplib.aioimaplib.Abort("test")
+        imap = FetchIMAP(
+            host=self.TEST_HOST,
+            deliverer=self.deliver_mock,
+        )
+
+        await imap.connect()
+        await imap.disconnect()
+        assert imap.client is None
+
+    async def test_disconnect_fail_logout(self) -> None:
+        mock_object = self.mock_aioimaplib.return_value
+        mock_object.logout.return_value = self.response_no
+        imap = FetchIMAP(
+            host=self.TEST_HOST,
+            deliverer=self.deliver_mock,
+        )
+
+        await imap.connect()
+        await imap.disconnect()
+        assert imap.client is None
+
+    async def test_disconnect_logout_double(self) -> None:
+        mock_object = self.mock_aioimaplib.return_value
+        imap = FetchIMAP(
+            host=self.TEST_HOST,
+            deliverer=self.deliver_mock,
+        )
+
+        await imap.disconnect()
+        await imap.disconnect()
+
+    async def test_state_errors(self) -> None:
+        mock_object = self.mock_aioimaplib.return_value
+        imap = FetchIMAP(
+            host=self.TEST_HOST,
+            deliverer=self.deliver_mock,
+        )
+
+        # not connected
+        assert imap.client is None
+
+        with self.assertRaises(MettmailFetchStateError):
+            await imap.run_idle_loop()
+
+        with self.assertRaises(MettmailFetchStateError):
+            await imap.idle_loop_step()
+
+        with self.assertRaises(MettmailFetchStateError):
+            await imap.fetch_deliver_unflagged_messages()
+
+        with self.assertRaises(MettmailFetchStateError):
+            await imap.fetch_deliver_message(123)
+
+        with self.assertRaises(MettmailFetchStateError):
+            await imap.set_fetched_flag(123)
+
+        assert imap.client is None
+
+    async def test_loop_runner(self) -> None:
+        imap = FetchIMAP(
+            host=self.TEST_HOST,
+            deliverer=self.deliver_mock,
+        )
+
+        # stub out loop function
+        imap.idle_loop_step = AsyncMock(return_value=False)
+
+        await imap.connect()
+        await imap.run_idle_loop()
+        imap.idle_loop_step.assert_called_once_with()

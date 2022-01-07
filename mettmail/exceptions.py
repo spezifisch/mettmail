@@ -46,10 +46,6 @@ class MettmailFetchInconsistentResponse(MettmailFetchException):
     pass
 
 
-class MettmailFetchParserError(MettmailFetchException):
-    pass
-
-
 class MettmailFetchCommandFailed(MettmailFetchException):
     pass
 

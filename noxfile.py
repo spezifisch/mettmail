@@ -19,7 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import nox
 
 
-@nox.session(python=["3.6", "3.7", "3.8", "3.9", "3.10"])
+@nox.session(python=["3.8", "3.9", "3.10"])
 def tests(session):
     session.install("poetry")
     session.run("poetry", "install")
@@ -27,7 +27,7 @@ def tests(session):
     session.run("coverage", "report")
 
 
-@nox.session
+@nox.session(python=["3.10"])
 def typing(session):
     session.install("poetry")
     session.run("poetry", "install")

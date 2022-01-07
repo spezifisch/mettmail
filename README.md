@@ -4,7 +4,16 @@ Get mail from IMAP server with IDLE extension and deliver to LMTP server, nothin
 
 ## Requirements
 
-* python >=3.6.2
+* python >=3.8
+* [poetry](https://python-poetry.org/) (`pip install --user poetry`)
+
+## Install
+
+Install mettmail python package and CLI command.
+
+```shell
+poetry install --no-root
+```
 
 ## Run
 
@@ -12,25 +21,18 @@ Get mail from IMAP server with IDLE extension and deliver to LMTP server, nothin
 poetry run mettmail --help
 ```
 
-## Install
-
-Install mettmail python package and CLI command.
-
-```shell
-poetry install
-```
-
 ## Development
 
 ### Build Dependencies
 
-* [poetry](https://python-poetry.org/)
 * [nox](https://nox.thea.codes/) as test-runner
 * [pyenv](https://github.com/pyenv/pyenv) (recommended) to manage python versions
 
 Install dependencies and pre-commit hooks:
 
 ```shell
+# you may need to install the following tools outside of your virtualenv, too:
+pip install nox poetry pre-commit
 poetry install --no-root
 poetry run pre-commit install
 ```
@@ -51,17 +53,17 @@ nox -p 3.8
 
 #### Thoroughly
 
+**Note:** Python 3.10 support is currently broken because of a bug in `aioimaplib`.
+
 Use `nox` to run tests and other useful things automatically for all supported python versions.
 
 Initial setup for all interpreters and environments:
 
 ```shell
-pyenv install 3.6.15
-pyenv install 3.7.12
 pyenv install 3.8.12
 pyenv install 3.9.9
 pyenv install 3.10.1
-pyenv local 3.6.15 3.7.12 3.8.12 3.9.9 3.10.1
+pyenv local 3.8.12 3.9.9 3.10.1
 nox
 ```
 

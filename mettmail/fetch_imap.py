@@ -32,7 +32,6 @@ from .exceptions import (
     MettmailFetchCommandFailed,
     MettmailFetchFeatureUnsupported,
     MettmailFetchInconsistentResponse,
-    MettmailFetchParserError,
     MettmailFetchStateError,
     MettmailFetchTimeoutError,
     MettmailFetchUnexpectedResponse,
@@ -136,55 +135,65 @@ class FetchIMAP:
 
     async def run_idle_loop(self) -> None:
         """Run loop waiting for mails and delivering them as they arrive."""
+        # run until step function decides to stop (i.e. immediately for stubbed out unit tests)
+        running = True
+        while running:
+            running = await self.idle_loop_step()
+
+    async def idle_loop_step(self) -> bool:
+        """Single loop step waiting for mails and delivering them as they arrive.
+
+        Returns True if the loop should keep running."""
         if self.client is None:
             raise MettmailFetchStateError("called without being connected")
 
-        while True:
-            logger.debug("-> enter IDLE")
-            idle_task = await self.client.idle_start(
-                timeout=60
-            )  # doesn't raise except for Abort which should fall through
+        logger.debug("-> enter IDLE")
+        idle_task = await self.client.idle_start(
+            timeout=60
+        )  # doesn't raise except for Abort which should fall through
 
-            # wait for new messages
-            new_uids = []  # type: List[int]
-            try:
-                msgs = await self.client.wait_server_push()
-            except asyncio.TimeoutError:
-                # time to restart IDLE: https://www.imapwiki.org/ClientImplementation/Synchronization
-                logger.debug("leaving idle after timeout")
-            else:
-                # parse messages
-                for msg in msgs:
-                    if msg.endswith(b"EXISTS"):
-                        # new mails have arrived
-                        uid = int(msg.split(b" ", 1)[0])
-                        logger.debug(f"(push) new message: {uid}")
-                        new_uids.append(uid)
-                    elif msg.endswith(b"RECENT"):
-                        logger.trace(f"(push) new recent count: {msg}")
-                    elif msg.endswith(b"EXPUNGE"):
-                        logger.trace(f"(push) message removed: {msg}")
-                    elif b"FETCH" in msg and b"\\Seen" in msg:
-                        logger.trace(f"(push) message seen {msg}")
-                    else:
-                        logger.trace(f"(push) unprocessed message: {msg}")
+        # wait for new messages
+        new_uids = []  # type: List[int]
+        try:
+            msgs = await self.client.wait_server_push()
+        except asyncio.TimeoutError:
+            # time to restart IDLE: https://www.imapwiki.org/ClientImplementation/Synchronization
+            logger.debug("leaving idle after timeout")
+        else:
+            # parse messages
+            for msg in msgs:
+                if msg.endswith(b"EXISTS"):
+                    # new mails have arrived
+                    uid = int(msg.split(b" ", 1)[0])
+                    logger.debug(f"(push) new message: {uid}")
+                    new_uids.append(uid)
+                elif msg.endswith(b"RECENT"):
+                    logger.trace(f"(push) new recent count: {msg}")
+                elif msg.endswith(b"EXPUNGE"):
+                    logger.trace(f"(push) message removed: {msg}")
+                elif b"FETCH" in msg and b"\\Seen" in msg:
+                    logger.trace(f"(push) message seen {msg}")
+                else:
+                    logger.trace(f"(push) unprocessed message: {msg}")
 
-            # end idle mode (to fetch messages or because 29mins are over)
-            self.client.idle_done()
-            await asyncio.wait_for(idle_task, timeout=5)  # doesn't raise
-            logger.debug("<- ending IDLE")
+        # end idle mode (to fetch messages or because 29mins are over)
+        self.client.idle_done()
+        await asyncio.wait_for(idle_task, timeout=5)  # doesn't raise
+        logger.debug("<- ending IDLE")
 
-            # process new messages if any
-            if len(new_uids):
-                logger.debug(f"got {len(new_uids)} new messages")
+        # process new messages if any
+        if len(new_uids):
+            logger.debug(f"got {len(new_uids)} new messages")
 
-                # NOTE there isn't any retry logic implemented yet
-                self.deliverer.connect()  # raises MettmailDeliverExceptions on failure
+            # NOTE there isn't any retry logic implemented yet
+            self.deliverer.connect()  # raises MettmailDeliverExceptions on failure
 
-                for uid in new_uids:
-                    await self.fetch_deliver_message(uid)  # raises MettmailExceptions on failure
+            for uid in new_uids:
+                await self.fetch_deliver_message(uid)  # raises MettmailExceptions on failure
 
-                self.deliverer.disconnect()  # doesn't raise
+            self.deliverer.disconnect()  # doesn't raise
+
+        return True
 
     async def fetch_deliver_unflagged_messages(self) -> None:
         """Fetch and process all unfetched messages in folder.
@@ -209,7 +218,7 @@ class FetchIMAP:
 
         # sanity checks
         if len(response.lines) != 2:
-            raise MettmailFetchParserError(f"expected 2 lines, got response: {response}")
+            raise MettmailFetchUnexpectedResponse(f"expected 2 lines, got response: {response}")
 
         if not response.lines[-1].lower().startswith(b"search completed"):
             raise MettmailFetchUnexpectedResponse(f"expected completed string, got response: {response}")
@@ -251,7 +260,9 @@ class FetchIMAP:
 
         # sanity checks
         if len(response.lines) != 4:
-            raise MettmailFetchParserError(f"expected 3 lines, got {len(response.lines)} in response: {response}")
+            raise MettmailFetchUnexpectedResponse(
+                f"expected 3 lines, got {len(response.lines)} in response: {response}"
+            )
 
         if not response.lines[-1].lower().startswith(b"fetch completed"):
             raise MettmailFetchUnexpectedResponse(f"expected completed string, got response: {response}")
@@ -273,7 +284,7 @@ class FetchIMAP:
             assert match is not None
             size = int(match.group("size"))
         except AssertionError:
-            raise MettmailFetchParserError(f"got response: {response}")
+            raise MettmailFetchUnexpectedResponse(f"got response: {response}")
 
         # sanity check for message size
         if size != len(response.lines[1]):
@@ -318,7 +329,9 @@ class FetchIMAP:
             raise MettmailFetchCommandFailed(f"failed marking uid {message_uid} fetched: {response}")
 
         if len(response.lines) != 1:
-            raise MettmailFetchParserError(f"expected one line, got {len(response.lines)} in response: {response}")
+            raise MettmailFetchUnexpectedResponse(
+                f"expected one line, got {len(response.lines)} in response: {response}"
+            )
 
         if not response.lines[-1].lower().startswith(b"store completed"):
             raise MettmailFetchUnexpectedResponse(f"expected completed string, got response: {response}")
