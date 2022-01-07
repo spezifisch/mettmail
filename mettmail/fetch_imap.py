@@ -261,7 +261,7 @@ class FetchIMAP:
         # sanity checks
         if len(response.lines) != 4:
             raise MettmailFetchUnexpectedResponse(
-                f"expected 3 lines, got {len(response.lines)} in response: {response}"
+                f"expected 4 lines, got {len(response.lines)} in response: {response}"
             )
 
         if not response.lines[-1].lower().startswith(b"fetch completed"):
@@ -275,7 +275,7 @@ class FetchIMAP:
             match = FETCH_MESSAGE_DATA_FLAGS.match(fetch_command_without_literal)
             assert match is not None
             flags = match.group("flags")
-            if bCUSTOM_FLAG_FETCHED in flags.split(b" "):
+            if bCUSTOM_FLAG_FETCHED.lower() in flags.lower().split(b" "):
                 logger.debug(f"-> done with message {uid}, skipping because already flagged")
                 return
 
