@@ -48,13 +48,20 @@ class TestFetchIMAPConnected(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(patch.stopall)
         mock_object = self.mock_aioimaplib.return_value
 
-        # return values for method calls
+        # return values for method calls for connect
         mock_object.wait_hello_from_server.return_value = None
         mock_object.has_capability.return_value = True  # yes, we have IDLE
         mock_object.login.return_value = Response("OK", [])
         mock_object.select.return_value = Response("OK", [])
-        mock_object.logout.return_value = Response("OK", [])
         mock_object.protocol = PropertyMock(return_value=[])
+        # disconnect
+        mock_object.logout.return_value = Response("OK", [])
+        # idle loop
+        f = asyncio.Future()
+        f.set_result("foo")
+        mock_object.idle_start.return_value = f
+        mock_object.wait_server_push.return_value = aioimaplib.STOP_WAIT_SERVER_PUSH
+        mock_object.idle_done.return_value = None
 
         self.response_no = Response("NO", [])
         self.response_bad = Response("BAD", [])
@@ -69,6 +76,8 @@ class TestFetchIMAPConnected(unittest.IsolatedAsyncioTestCase):
             host=self.TEST_HOST,
             deliverer=self.deliver_mock,
         )
+        self.imap.timeout_idle_start = 1
+        self.imap.timeout_idle_end = 1
         self.imap.is_permanentflag_supported = Mock(return_value=True)  # yes, we can add new PERMANENTFLAGS
 
     async def test_setup(self) -> None:
@@ -461,3 +470,135 @@ class TestFetchIMAPConnected(unittest.IsolatedAsyncioTestCase):
 
         self.deliver_mock.connect.assert_not_called()
         self.imap.fetch_deliver_message.assert_not_called()
+
+    async def test_idle_loop_no_mail(self) -> None:
+        self.imap.fetch_deliver_message = AsyncMock()
+
+        mock_object = self.mock_aioimaplib.return_value
+
+        await self.imap.connect()
+        ret = await self.imap.idle_loop_step()
+        assert True == ret
+
+        mock_object.idle_start.assert_called_once_with(timeout=1)
+        mock_object.wait_server_push.assert_called_once_with()
+        mock_object.idle_done.assert_called_once_with()
+        self.deliver_mock.connect.assert_not_called()
+        self.imap.fetch_deliver_message.assert_not_called()
+        self.deliver_mock.disconnect.assert_not_called()
+
+    async def test_idle_loop_one_mail(self) -> None:
+        self.imap.fetch_deliver_message = AsyncMock()
+
+        mock_object = self.mock_aioimaplib.return_value
+        mock_object.wait_server_push.return_value = [b"23 EXISTS", b"1 RECENT", b"OK Still here"]
+
+        await self.imap.connect()
+        ret = await self.imap.idle_loop_step()
+        assert True == ret
+
+        mock_object.idle_start.assert_called_once_with(timeout=1)
+        mock_object.wait_server_push.assert_called_once_with()
+        mock_object.idle_done.assert_called_once_with()
+        self.deliver_mock.connect.assert_called_once_with()
+        self.imap.fetch_deliver_message.assert_called_once_with(23)
+        self.deliver_mock.disconnect.assert_called_once_with()
+
+    async def test_idle_loop_dconnect_exception(self) -> None:
+        self.imap.fetch_deliver_message = AsyncMock()
+        self.deliver_mock.connect.side_effect = MettmailDeliverConnectError("test")
+
+        mock_object = self.mock_aioimaplib.return_value
+        mock_object.wait_server_push.return_value = [b"1 EXISTS", b"1 RECENT"]
+
+        await self.imap.connect()
+        with self.assertRaises(MettmailDeliverConnectError) as ctx:
+            await self.imap.idle_loop_step()
+        assert "test" == str(ctx.exception)
+
+        mock_object.idle_start.assert_called_once_with(timeout=1)
+        mock_object.wait_server_push.assert_called_once_with()
+        mock_object.idle_done.assert_called_once_with()
+        self.deliver_mock.connect.assert_called_once_with()
+        self.imap.fetch_deliver_message.assert_not_called()
+        self.deliver_mock.disconnect.assert_not_called()
+
+    async def test_idle_loop_fdm_exception(self) -> None:
+        self.imap.fetch_deliver_message = AsyncMock()
+        self.imap.fetch_deliver_message.side_effect = MettmailDeliverRecipientRefused("test")
+
+        mock_object = self.mock_aioimaplib.return_value
+        mock_object.wait_server_push.return_value = [b"1 EXISTS", b"1 RECENT"]
+
+        await self.imap.connect()
+        with self.assertRaises(MettmailDeliverRecipientRefused) as ctx:
+            await self.imap.idle_loop_step()
+        assert "test" == str(ctx.exception)
+
+        mock_object.idle_start.assert_called_once_with(timeout=1)
+        mock_object.wait_server_push.assert_called_once_with()
+        mock_object.idle_done.assert_called_once_with()
+        self.deliver_mock.connect.assert_called_once_with()
+        self.imap.fetch_deliver_message.assert_called_once_with(1)
+        self.deliver_mock.disconnect.assert_not_called()
+
+    async def test_idle_loop_idle_end_timeout(self) -> None:
+        mock_object = self.mock_aioimaplib.return_value
+        mock_object.wait_server_push.return_value = aioimaplib.STOP_WAIT_SERVER_PUSH
+        # don't set the future so it will lead to a timeout
+        mock_object.idle_start.return_value = asyncio.Future()
+
+        await self.imap.connect()
+        with self.assertRaises(MettmailFetchTimeoutError) as ctx:
+            await self.imap.idle_loop_step()
+        assert "idle end timeout" == str(ctx.exception)
+
+        mock_object.idle_start.assert_called_once_with(timeout=1)
+        mock_object.wait_server_push.assert_called_once_with()
+        mock_object.idle_done.assert_called_once_with()
+        self.deliver_mock.connect.assert_not_called()
+        self.deliver_mock.disconnect.assert_not_called()
+
+    async def test_idle_loop_wait_push_timeout(self) -> None:
+        mock_object = self.mock_aioimaplib.return_value
+        mock_object.wait_server_push.side_effect = asyncio.TimeoutError("test")
+
+        await self.imap.connect()
+        ret = await self.imap.idle_loop_step()
+        assert True == ret
+
+        mock_object.idle_start.assert_called_once_with(timeout=1)
+        mock_object.wait_server_push.assert_called_once_with()
+        mock_object.idle_done.assert_called_once_with()
+        self.deliver_mock.connect.assert_not_called()
+        self.deliver_mock.disconnect.assert_not_called()
+
+    async def test_idle_loop_idle_start_timeout(self) -> None:
+        mock_object = self.mock_aioimaplib.return_value
+        mock_object.idle_start.side_effect = asyncio.TimeoutError("test")
+
+        await self.imap.connect()
+        with self.assertRaises(MettmailFetchTimeoutError) as ctx:
+            await self.imap.idle_loop_step()
+        assert "idle start timeout" == str(ctx.exception)
+
+        mock_object.idle_start.assert_called_once_with(timeout=1)
+        mock_object.wait_server_push.assert_not_called()
+        mock_object.idle_done.assert_not_called()
+        self.deliver_mock.connect.assert_not_called()
+        self.deliver_mock.disconnect.assert_not_called()
+
+    async def test_idle_loop_idle_start_abort(self) -> None:
+        mock_object = self.mock_aioimaplib.return_value
+        mock_object.idle_start.side_effect = aioimaplib.Abort("test")
+
+        await self.imap.connect()
+        with self.assertRaises(MettmailFetchAbort) as ctx:
+            await self.imap.idle_loop_step()
+        assert "idle start abort" == str(ctx.exception)
+
+        mock_object.idle_start.assert_called_once_with(timeout=1)
+        mock_object.wait_server_push.assert_not_called()
+        mock_object.idle_done.assert_not_called()
+        self.deliver_mock.connect.assert_not_called()
+        self.deliver_mock.disconnect.assert_not_called()

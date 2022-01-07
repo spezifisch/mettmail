@@ -26,6 +26,10 @@ class MettmailFetchException(MettmailException):
 
 
 ## Fetch exceptions...
+class MettmailFetchAbort(MettmailFetchException):
+    pass
+
+
 class MettmailFetchTimeoutError(MettmailFetchException):
     pass
 

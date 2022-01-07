@@ -28,8 +28,10 @@ from loguru import logger
 from .deliver_base import DeliverBase
 from .exceptions import (
     MettmailDeliverException,
+    MettmailFetchAbort,
     MettmailFetchAuthenticationError,
     MettmailFetchCommandFailed,
+    MettmailFetchException,
     MettmailFetchFeatureUnsupported,
     MettmailFetchInconsistentResponse,
     MettmailFetchStateError,
@@ -65,6 +67,8 @@ class FetchIMAP:
         self.deliverer = deliverer  # type: DeliverBase
 
         self.client = None  # type: Optional[aioimaplib.IMAP4_SSL]
+        self.timeout_idle_start = 60
+        self.timeout_idle_end = 5
 
     async def connect(self) -> None:
         """Connect to IMAP server and login.
@@ -148,9 +152,14 @@ class FetchIMAP:
             raise MettmailFetchStateError("called without being connected")
 
         logger.debug("-> enter IDLE")
-        idle_task = await self.client.idle_start(
-            timeout=60
-        )  # doesn't raise except for Abort which should fall through
+        try:
+            idle_task = await self.client.idle_start(
+                timeout=self.timeout_idle_start
+            )  # doesn't raise except for Abort and asyncio.TimeoutError
+        except asyncio.TimeoutError:
+            raise MettmailFetchTimeoutError("idle start timeout")
+        except aioimaplib.Abort:
+            raise MettmailFetchAbort("idle start abort")
 
         # wait for new messages
         new_uids = []  # type: List[int]
@@ -169,16 +178,15 @@ class FetchIMAP:
                     new_uids.append(uid)
                 elif msg.endswith(b"RECENT"):
                     logger.trace(f"(push) new recent count: {msg}")
-                elif msg.endswith(b"EXPUNGE"):
-                    logger.trace(f"(push) message removed: {msg}")
-                elif b"FETCH" in msg and b"\\Seen" in msg:
-                    logger.trace(f"(push) message seen {msg}")
                 else:
                     logger.trace(f"(push) unprocessed message: {msg}")
 
         # end idle mode (to fetch messages or because 29mins are over)
         self.client.idle_done()
-        await asyncio.wait_for(idle_task, timeout=5)  # doesn't raise
+        try:
+            await asyncio.wait_for(idle_task, timeout=self.timeout_idle_end)  # raises asyncio.TimeoutError
+        except asyncio.TimeoutError:
+            raise MettmailFetchTimeoutError("idle end timeout")
         logger.debug("<- ending IDLE")
 
         # process new messages if any
