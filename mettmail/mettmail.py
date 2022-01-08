@@ -37,11 +37,11 @@ async def mettmail_loop(fetcher: FetchIMAP) -> None:
     logger.info("connecting")
     try:
         await fetcher.connect()
-    except MettmailFetchAuthenticationError as err:
-        logger.error(f"login failed: {err}")
+    except MettmailFetchAuthenticationError:
+        logger.exception("login failed")
         return
-    except MettmailFetchException as err:
-        logger.error(f"connection failed: {err}")
+    except MettmailFetchException:
+        logger.exception("connection failed")
         return
 
     try:
@@ -56,18 +56,20 @@ async def mettmail_loop(fetcher: FetchIMAP) -> None:
         # fetch/deliver new messages as they arrive
         logger.info("waiting for new messages")
         await fetcher.run_idle_loop()
-    except MettmailFetchException as err:
-        logger.error(f"fetcher error: {err}")
+    except MettmailFetchException:
+        logger.exception("fetcher error")
         return
-    except MettmailDeliverException as err:
-        logger.error(f"deliverer error: {err}")
+    except MettmailDeliverException:
+        logger.exception("deliverer error")
         return
 
 
 @click.command()
 @click.option("--config", default="mettmail.yaml", help="Config file")
-@click.option("--debug", default=False, is_flag=True, help="Set loglevel to DEBUG")
-@click.option("--trace", default=False, is_flag=True, help="Set loglevel to TRACE")
+@click.option(
+    "--debug", default=False, is_flag=True, help="Set loglevel to DEBUG (may leak sensitive data in exceptions)"
+)
+@click.option("--trace", default=False, is_flag=True, help="Set loglevel to TRACE (may leak sensitive data)")
 def run(config: str, debug: bool, trace: bool) -> None:
     logger.remove()
     if trace:
@@ -75,16 +77,16 @@ def run(config: str, debug: bool, trace: bool) -> None:
     elif debug:
         logger.add(sys.stderr, level="DEBUG")
     else:
-        logger.add(sys.stderr, level="INFO")
+        logger.add(sys.stderr, level="INFO", diagnose=False, backtrace=False)
 
     # load config file
     try:
         args = strictyaml.load(open(config, "r").read(), schema=MettmailSchema, label=config)
     except OSError as err:
-        print(f"couldn't load config file: {err}")
+        logger.error(f"couldn't load config file: {err}")
         return
     except strictyaml.YAMLError as err:
-        print(err)
+        logger.error(f"config file parsing error:\n{err}")
         return
 
     # LMTP
