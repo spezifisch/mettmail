@@ -25,7 +25,11 @@ from loguru import logger
 
 from .config_schema import MettmailSchema
 from .deliver_lmtp import DeliverLMTP
-from .exceptions import MettmailDeliverException, MettmailFetchAuthenticationError, MettmailFetchException
+from .exceptions import (
+    MettmailDeliverException,
+    MettmailFetchAuthenticationError,
+    MettmailFetchException,
+)
 from .fetch_imap import FetchIMAP
 
 
@@ -67,16 +71,19 @@ async def mettmail_loop(fetcher: FetchIMAP) -> None:
 @click.command()
 @click.option("--config", default="mettmail.yaml", help="Config file")
 @click.option(
-    "--debug", default=False, is_flag=True, help="Set loglevel to DEBUG (may leak sensitive data in exceptions)"
+    "--debug", default=False, is_flag=True, help="Set loglevel to DEBUG (may show sensitive data in exceptions)"
 )
-@click.option("--trace", default=False, is_flag=True, help="Set loglevel to TRACE (may leak sensitive data)")
+@click.option("--trace", default=False, is_flag=True, help="Set loglevel to TRACE (may show sensitive data)")
 def run(config: str, debug: bool, trace: bool) -> None:
     logger.remove()
     if trace:
+        # print pretty much every call
         logger.add(sys.stderr, level="TRACE")
     elif debug:
+        # print full backtraces and other stuff
         logger.add(sys.stderr, level="DEBUG")
     else:
+        # don't print full backtraces which may include mail content
         logger.add(sys.stderr, level="INFO", diagnose=False, backtrace=False)
 
     # load config file

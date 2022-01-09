@@ -19,7 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import nox
 
 
-@nox.session(python=["3.8", "3.9", "3.10"])
+@nox.session(python=["3.8", "3.9", "3.10"], reuse_venv=True)
 def tests(session):
     session.install("poetry")
     session.run("poetry", "install")
@@ -27,8 +27,10 @@ def tests(session):
     session.run("coverage", "report")
 
 
-@nox.session(python=["3.10"])
-def typing(session):
+@nox.session(python=["3.10"], reuse_venv=True)
+def lint(session):
     session.install("poetry")
-    session.run("poetry", "install")
+    session.run("poetry", "install", "--no-root")
+    session.run("black", "--check", "mettmail", "tests")
+    session.run("flake8", "--max-line-length=120", "mettmail", "tests")
     session.run("mypy", "--strict", ".")

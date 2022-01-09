@@ -15,6 +15,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+
 # Base exception for everything we raise
 class MettmailException(Exception):
     pass
@@ -25,7 +26,7 @@ class MettmailFetchException(MettmailException):
     pass
 
 
-## Fetch exceptions...
+# * Fetch exceptions...
 class MettmailFetchAbort(MettmailFetchException):
     pass
 
@@ -63,7 +64,7 @@ class MettmailDeliverException(MettmailException):
     pass
 
 
-## Deliver exceptions...
+# * Deliver exceptions...
 class MettmailDeliverConnectError(MettmailDeliverException):
     pass
 

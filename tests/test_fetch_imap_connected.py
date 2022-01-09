@@ -18,14 +18,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
 import unittest
-from socket import gaierror
-from unittest.mock import AsyncMock, Mock, PropertyMock, call, mock_open, patch
+from unittest.mock import AsyncMock, Mock, PropertyMock, call, patch
 
 import aioimaplib
 from aioimaplib import Response
 
 from mettmail.deliver_base import DeliverBase
-from mettmail.exceptions import *
+from mettmail.exceptions import (
+    MettmailDeliverConnectError,
+    MettmailDeliverException,
+    MettmailDeliverRecipientRefused,
+    MettmailFetchAbort,
+    MettmailFetchCommandFailed,
+    MettmailFetchInconsistentResponse,
+    MettmailFetchStateError,
+    MettmailFetchTimeoutError,
+    MettmailFetchUnexpectedResponse,
+)
 from mettmail.fetch_imap import FetchIMAP
 
 
@@ -222,7 +231,7 @@ class TestFetchIMAPConnected(unittest.IsolatedAsyncioTestCase):
         mock_object.uid.return_value = Response(result="OK", lines=lines)
 
         await self.imap.connect()
-        with self.assertRaises(MettmailFetchUnexpectedResponse) as ctx:
+        with self.assertRaises(MettmailFetchUnexpectedResponse):
             await self.imap.fetch_deliver_message(123)
 
         # imap fetch
@@ -240,7 +249,7 @@ class TestFetchIMAPConnected(unittest.IsolatedAsyncioTestCase):
         mock_object.uid.return_value = Response(result="OK", lines=lines)
 
         await self.imap.connect()
-        with self.assertRaises(MettmailFetchUnexpectedResponse) as ctx:
+        with self.assertRaises(MettmailFetchUnexpectedResponse):
             await self.imap.fetch_deliver_message(123)
 
         # imap fetch
@@ -478,7 +487,7 @@ class TestFetchIMAPConnected(unittest.IsolatedAsyncioTestCase):
 
         await self.imap.connect()
         ret = await self.imap.idle_loop_step()
-        assert True == ret
+        assert ret is True
 
         mock_object.idle_start.assert_called_once_with(timeout=1)
         mock_object.wait_server_push.assert_called_once_with()
@@ -495,7 +504,7 @@ class TestFetchIMAPConnected(unittest.IsolatedAsyncioTestCase):
 
         await self.imap.connect()
         ret = await self.imap.idle_loop_step()
-        assert True == ret
+        assert ret is True
 
         mock_object.idle_start.assert_called_once_with(timeout=1)
         mock_object.wait_server_push.assert_called_once_with()
@@ -565,7 +574,7 @@ class TestFetchIMAPConnected(unittest.IsolatedAsyncioTestCase):
 
         await self.imap.connect()
         ret = await self.imap.idle_loop_step()
-        assert True == ret
+        assert ret is True
 
         mock_object.idle_start.assert_called_once_with(timeout=1)
         mock_object.wait_server_push.assert_called_once_with()

@@ -20,6 +20,8 @@ loguru-mypy = "^0.0.4"
 mypy = "^0.930"
 pre-commit = "^2.16.0"
 pytest = "^6.2.5"
+flake8 = "^4.0.1"
+isort = {version = "^5.10.1"}
 
 [tool.poetry.scripts]
 mettmail = "mettmail.mettmail:run"
@@ -34,6 +36,9 @@ source = ["mettmail"]
 exclude_lines = ["@abstractmethod", "@abc.abstractmethod", "if __name__ == .__main__.:"]
 show_missing = true
 
+[tool.isort]
+profile = "black"
+
 [tool.mypy]
 plugins = "loguru_mypy"
 
@@ -41,6 +46,7 @@ plugins = "loguru_mypy"
 ignore_missing_imports = true
 module = [
   "aioimaplib",
+  "strictyaml"
 ]
 strict = true
 warn_return_any = false

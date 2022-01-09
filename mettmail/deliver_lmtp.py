@@ -119,7 +119,7 @@ class DeliverLMTP(DeliverBase):
             raise MettmailDeliverRecipientRefused(f"recipient refused: {err}")
         except smtplib.SMTPException as err:
             raise MettmailDeliverCommandFailed(f"smtp failure: {err}")
-        except:
+        except:  # noqa: E722
             # catch all exception and make sure we leave this function
             logger.exception("general exception while sending")  # make sure we get the backtrace
             raise MettmailDeliverCommandFailed("general smtp failure")

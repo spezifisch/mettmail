@@ -31,7 +31,6 @@ from .exceptions import (
     MettmailFetchAbort,
     MettmailFetchAuthenticationError,
     MettmailFetchCommandFailed,
-    MettmailFetchException,
     MettmailFetchFeatureUnsupported,
     MettmailFetchInconsistentResponse,
     MettmailFetchStateError,
@@ -216,7 +215,7 @@ class FetchIMAP:
         if self.client is None:
             raise MettmailFetchStateError("called without being connected")
 
-        logger.trace(f"fetching non-tagged mails")
+        logger.trace("fetching unflagged mails")
         try:
             response = await self.client.uid_search(f"UNKEYWORD {CUSTOM_FLAG_FETCHED}")
         except asyncio.TimeoutError:
@@ -241,13 +240,13 @@ class FetchIMAP:
 
             self.deliverer.disconnect()  # doesn't raise
         else:
-            logger.debug(f"no new messages")
+            logger.debug("no new messages")
 
     async def fetch_deliver_message(self, uid: int) -> None:
         """Fetch mail with given UID, deliver it to the destination, and mark the mail as fetched.
 
-        We use IMAP FETCH to get the mail. Its flags are checked in case it's a newly added mail that already contains our
-        MettmailFetched flag (it might have been moved back and forth by another IMAP session).
+        We use IMAP FETCH to get the mail. Its flags are checked in case it's a newly added mail that already contains
+        our MettmailFetched flag (it might have been moved back and forth by another IMAP session).
 
         The message is delivered to the destination server by `deliver_message()`. Only if this is successful we set the
         flag to indicate the message has been fetched.

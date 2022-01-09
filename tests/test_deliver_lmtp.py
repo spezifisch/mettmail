@@ -17,12 +17,22 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import unittest
+from smtplib import (
+    SMTPException,
+    SMTPNotSupportedError,
+    SMTPRecipientsRefused,
+    SMTPServerDisconnected,
+)
 from socket import gaierror
-from smtplib import SMTPException, SMTPHeloError, SMTPNotSupportedError, SMTPRecipientsRefused, SMTPServerDisconnected
 from unittest.mock import patch
 
 from mettmail.deliver_lmtp import DeliverLMTP
-from mettmail.exceptions import *
+from mettmail.exceptions import (
+    MettmailDeliverCommandFailed,
+    MettmailDeliverConnectError,
+    MettmailDeliverRecipientRefused,
+    MettmailDeliverStateError,
+)
 
 
 class TestDeliverLMTP(unittest.TestCase):
@@ -59,7 +69,7 @@ class TestDeliverLMTP(unittest.TestCase):
             assert kwargs.get("from_addr") == "mettmail@localhost"
             assert kwargs.get("to_addrs") == self.TEST_RECIPIENT
             assert b"this is content" in kwargs.get("msg")
-            assert delivery_ok == True
+            assert delivery_ok is True
 
             # quit
             lmtp.disconnect()
@@ -68,7 +78,7 @@ class TestDeliverLMTP(unittest.TestCase):
             assert name == "().quit"
 
     def test_invalid_constructor_args(self) -> None:
-        with patch("smtplib.LMTP", autospec=True) as mock:
+        with patch("smtplib.LMTP", autospec=True):
             with self.assertRaises(ValueError):
                 DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient="")
 
@@ -152,7 +162,7 @@ class TestDeliverLMTP(unittest.TestCase):
             assert "LHLO failed" in str(ctx.exception)
 
         # uncovered exceptions should pass through so we can log and fix them
-        with patch("smtplib.LMTP", autospec=True, side_effect=ValueError("test")) as mock:
+        with patch("smtplib.LMTP", autospec=True, side_effect=ValueError("test")):
             lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
             with self.assertRaises(ValueError):
                 lmtp.connect()
@@ -164,7 +174,7 @@ class TestDeliverLMTP(unittest.TestCase):
                 lmtp.connect()
 
     def test_class_fudgery(self) -> None:
-        with patch("smtplib.LMTP", autospec=True) as mock:
+        with patch("smtplib.LMTP", autospec=True):
             lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
             lmtp.connect()
 

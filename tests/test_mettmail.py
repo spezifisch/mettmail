@@ -16,24 +16,28 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from io import StringIO
 import sys
+from io import StringIO
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import AsyncMock, Mock, PropertyMock, call, mock_open, patch
+from unittest.mock import AsyncMock
 
 from loguru import logger
 
 from mettmail import __version__, mettmail
-from mettmail.deliver_base import DeliverBase
+from mettmail.exceptions import (
+    MettmailDeliverConnectError,
+    MettmailFetchAuthenticationError,
+    MettmailFetchCommandFailed,
+    MettmailFetchTimeoutError,
+)
 from mettmail.fetch_imap import FetchIMAP
-from mettmail.exceptions import *
 
 
 def test_version() -> None:
     assert __version__ == "0.1.0"
 
 
-class TestMettmailCLI(IsolatedAsyncioTestCase):
+class TestMettmailMain(IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         logger.remove()
         logger.add(sys.stderr, level="INFO", diagnose=False, backtrace=False)
@@ -42,7 +46,6 @@ class TestMettmailCLI(IsolatedAsyncioTestCase):
         logger.add(self.error_log, level="ERROR", format="{message}", diagnose=False, backtrace=False)
 
         self.mock_fetcher = AsyncMock(spec_set=FetchIMAP)
-        self.mock_deliver = AsyncMock(spec_set=DeliverBase)
 
     async def test_loop_success(self):
         self.mock_fetcher.has_idle.return_value = True

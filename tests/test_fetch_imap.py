@@ -18,14 +18,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
 import unittest
-from socket import gaierror
 from unittest.mock import AsyncMock, PropertyMock, patch
 
 import aioimaplib
 from aioimaplib import Response
 
 from mettmail.deliver_base import DeliverBase
-from mettmail.exceptions import *
+from mettmail.exceptions import (
+    MettmailFetchAuthenticationError,
+    MettmailFetchCommandFailed,
+    MettmailFetchFeatureUnsupported,
+    MettmailFetchStateError,
+    MettmailFetchTimeoutError,
+)
 from mettmail.fetch_imap import FetchIMAP
 
 
@@ -260,7 +265,6 @@ class TestFetchIMAP(unittest.IsolatedAsyncioTestCase):
         assert imap.client is None
 
     async def test_disconnect_logout_double(self) -> None:
-        mock_object = self.mock_aioimaplib.return_value
         imap = FetchIMAP(
             host=self.TEST_HOST,
             deliverer=self.deliver_mock,
@@ -270,7 +274,6 @@ class TestFetchIMAP(unittest.IsolatedAsyncioTestCase):
         await imap.disconnect()
 
     async def test_state_errors(self) -> None:
-        mock_object = self.mock_aioimaplib.return_value
         imap = FetchIMAP(
             host=self.TEST_HOST,
             deliverer=self.deliver_mock,
