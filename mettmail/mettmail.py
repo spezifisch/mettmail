@@ -34,7 +34,7 @@ from .fetch_imap import FetchIMAP
 
 
 @logger.catch
-async def mettmail_loop(fetcher: FetchIMAP) -> None:
+async def mettmail_loop(fetcher: FetchIMAP) -> bool:
     """Mettmail main loop that fetches mails as they arrive on IMAP and delivers them using LMTP.
 
     TODO: retry logic, on any problem we currently just raise an exception and bail."""
@@ -43,10 +43,10 @@ async def mettmail_loop(fetcher: FetchIMAP) -> None:
         await fetcher.connect()
     except MettmailFetchAuthenticationError:
         logger.exception("login failed")
-        return
+        return False
     except MettmailFetchException:
         logger.exception("connection failed")
-        return
+        return False
 
     try:
         # initially fetch unflagged messages (and deliver them)
@@ -55,17 +55,19 @@ async def mettmail_loop(fetcher: FetchIMAP) -> None:
 
         if not fetcher.has_idle():
             logger.warning("fetch complete, ending because we can't IDLE")
-            return
+            return True
 
         # fetch/deliver new messages as they arrive
         logger.info("waiting for new messages")
         await fetcher.run_idle_loop()
     except MettmailFetchException:
         logger.exception("fetcher error")
-        return
+        return False
     except MettmailDeliverException:
         logger.exception("deliverer error")
-        return
+        return False
+
+    return True
 
 
 @click.command()
@@ -91,10 +93,10 @@ def run(config: str, debug: bool, trace: bool) -> None:
         args = strictyaml.load(open(config, "r").read(), schema=MettmailSchema, label=config)
     except OSError as err:
         logger.error(f"couldn't load config file: {err}")
-        return
+        sys.exit(1)
     except strictyaml.YAMLError as err:
         logger.error(f"config file parsing error:\n{err}")
-        return
+        sys.exit(1)
 
     # LMTP
     deliverer = DeliverLMTP(**args.data["lmtp"])
@@ -105,12 +107,18 @@ def run(config: str, debug: bool, trace: bool) -> None:
     # run mettmail_loop until an error occurs
     loop = asyncio.get_event_loop()
     task = mettmail_loop(fetcher)
-    loop.run_until_complete(task)
+    done, _ = loop.run_until_complete(asyncio.wait({task}))
+    return_code = 1
+    if len(done) and done.pop().result() is True:
+        return_code = 0
 
     # cleanup
     logger.trace("cleanup")
-    loop.run_until_complete(fetcher.disconnect())
+    loop.run_until_complete(asyncio.wait({fetcher.disconnect()}))
     deliverer.disconnect()
+
+    loop.close()
+    sys.exit(return_code)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,7 @@
+imap:
+    host: 0
+    port: 993
+lmtp:
+    host: localhost
+    port: 24
+    envelope_recipient: foo
