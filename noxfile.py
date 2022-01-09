@@ -31,6 +31,6 @@ def tests(session):
 def lint(session):
     session.install("poetry")
     session.run("poetry", "install", "--no-root")
-    session.run("black", "--check", "mettmail", "tests")
     session.run("flake8", "--max-line-length=120", "mettmail", "tests")
     session.run("mypy", "--strict", ".")
+    session.run("black", "--check", "mettmail", "tests")

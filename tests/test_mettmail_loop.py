@@ -23,7 +23,6 @@ from unittest.mock import AsyncMock
 
 from loguru import logger
 
-from mettmail import __version__, mettmail
 from mettmail.exceptions import (
     MettmailDeliverConnectError,
     MettmailFetchAuthenticationError,
@@ -31,13 +30,10 @@ from mettmail.exceptions import (
     MettmailFetchTimeoutError,
 )
 from mettmail.fetch_imap import FetchIMAP
+from mettmail.mettmail_loop import mettmail_loop
 
 
-def test_version() -> None:
-    assert __version__ == "0.1.0"
-
-
-class TestMettmailMain(IsolatedAsyncioTestCase):
+class TestMettmailLoop(IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         logger.remove()
         logger.add(sys.stderr, level="INFO", diagnose=False, backtrace=False)
@@ -50,7 +46,7 @@ class TestMettmailMain(IsolatedAsyncioTestCase):
     async def test_loop_success(self):
         self.mock_fetcher.has_idle.return_value = True
 
-        await mettmail.mettmail_loop(self.mock_fetcher)
+        await mettmail_loop(self.mock_fetcher)
 
         self.mock_fetcher.connect.assert_called_once_with()
         self.mock_fetcher.fetch_deliver_unflagged_messages.assert_called_once_with()
@@ -60,7 +56,7 @@ class TestMettmailMain(IsolatedAsyncioTestCase):
     async def test_loop_success_no_idle(self):
         self.mock_fetcher.has_idle.return_value = False
 
-        await mettmail.mettmail_loop(self.mock_fetcher)
+        await mettmail_loop(self.mock_fetcher)
 
         self.mock_fetcher.connect.assert_called_once_with()
         self.mock_fetcher.fetch_deliver_unflagged_messages.assert_called_once_with()
@@ -71,7 +67,7 @@ class TestMettmailMain(IsolatedAsyncioTestCase):
         self.mock_fetcher.has_idle.return_value = True
         self.mock_fetcher.run_idle_loop.side_effect = MettmailDeliverConnectError("test")
 
-        await mettmail.mettmail_loop(self.mock_fetcher)
+        await mettmail_loop(self.mock_fetcher)
 
         assert self.error_log.getvalue().startswith("deliverer error\nTraceback")
 
@@ -81,7 +77,7 @@ class TestMettmailMain(IsolatedAsyncioTestCase):
         self.mock_fetcher.has_idle.return_value = True
         self.mock_fetcher.run_idle_loop.side_effect = MettmailFetchTimeoutError("test")
 
-        await mettmail.mettmail_loop(self.mock_fetcher)
+        await mettmail_loop(self.mock_fetcher)
 
         assert self.error_log.getvalue().startswith("fetcher error\nTraceback")
 
@@ -90,7 +86,7 @@ class TestMettmailMain(IsolatedAsyncioTestCase):
     async def test_loop_exception_fdum(self):
         self.mock_fetcher.fetch_deliver_unflagged_messages.side_effect = MettmailFetchCommandFailed("test")
 
-        await mettmail.mettmail_loop(self.mock_fetcher)
+        await mettmail_loop(self.mock_fetcher)
 
         assert self.error_log.getvalue().startswith("fetcher error\nTraceback")
 
@@ -101,7 +97,7 @@ class TestMettmailMain(IsolatedAsyncioTestCase):
     async def test_loop_exception_connect_auth(self):
         self.mock_fetcher.connect.side_effect = MettmailFetchAuthenticationError("test")
 
-        await mettmail.mettmail_loop(self.mock_fetcher)
+        await mettmail_loop(self.mock_fetcher)
 
         assert self.error_log.getvalue().startswith("login failed\nTraceback")
 
@@ -111,7 +107,7 @@ class TestMettmailMain(IsolatedAsyncioTestCase):
     async def test_loop_exception_connect_failed(self):
         self.mock_fetcher.connect.side_effect = MettmailFetchTimeoutError("test")
 
-        await mettmail.mettmail_loop(self.mock_fetcher)
+        await mettmail_loop(self.mock_fetcher)
 
         assert self.error_log.getvalue().startswith("connection failed\nTraceback")
 

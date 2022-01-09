@@ -24,6 +24,9 @@ _imap_schema = Map(
         Optional("user"): Str(),
         Optional("password"): Str(),
         Optional("mailbox"): Str(),
+        Optional("timeout_connect"): Int(),
+        Optional("timeout_idle_start"): Int(),
+        Optional("timeout_idle_end"): Int(),
     }
 )
 

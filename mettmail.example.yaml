@@ -1,6 +1,6 @@
 imap:
     host: localhost
-    port: 993
+    port: 9931
     user: a
     password: pass
 lmtp:

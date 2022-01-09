@@ -3,6 +3,9 @@ imap:
     port: 993
     user: a
     password: pass
+    timeout_connect: 1
+    timeout_idle_start: 1
+    timeout_idle_end: 1
 lmtp:
     host: localhost
     port: 24

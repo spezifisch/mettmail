@@ -25,49 +25,8 @@ from loguru import logger
 
 from .config_schema import MettmailSchema
 from .deliver_lmtp import DeliverLMTP
-from .exceptions import (
-    MettmailDeliverException,
-    MettmailFetchAuthenticationError,
-    MettmailFetchException,
-)
 from .fetch_imap import FetchIMAP
-
-
-@logger.catch
-async def mettmail_loop(fetcher: FetchIMAP) -> bool:
-    """Mettmail main loop that fetches mails as they arrive on IMAP and delivers them using LMTP.
-
-    TODO: retry logic, on any problem we currently just raise an exception and bail."""
-    logger.info("connecting")
-    try:
-        await fetcher.connect()
-    except MettmailFetchAuthenticationError:
-        logger.exception("login failed")
-        return False
-    except MettmailFetchException:
-        logger.exception("connection failed")
-        return False
-
-    try:
-        # initially fetch unflagged messages (and deliver them)
-        logger.info("initial fetch")
-        await fetcher.fetch_deliver_unflagged_messages()
-
-        if not fetcher.has_idle():
-            logger.warning("fetch complete, ending because we can't IDLE")
-            return True
-
-        # fetch/deliver new messages as they arrive
-        logger.info("waiting for new messages")
-        await fetcher.run_idle_loop()
-    except MettmailFetchException:
-        logger.exception("fetcher error")
-        return False
-    except MettmailDeliverException:
-        logger.exception("deliverer error")
-        return False
-
-    return True
+from .mettmail_loop import mettmail_loop
 
 
 @click.command()
@@ -106,7 +65,7 @@ def run(config: str, debug: bool, trace: bool) -> None:
 
     # run mettmail_loop until an error occurs
     loop = asyncio.get_event_loop()
-    task = mettmail_loop(fetcher)
+    task = loop.create_task(mettmail_loop(fetcher))
     done, _ = loop.run_until_complete(asyncio.wait({task}))
     return_code = 1
     if len(done) and done.pop().result() is True:
@@ -114,7 +73,8 @@ def run(config: str, debug: bool, trace: bool) -> None:
 
     # cleanup
     logger.trace("cleanup")
-    loop.run_until_complete(asyncio.wait({fetcher.disconnect()}))
+    task = loop.create_task(fetcher.disconnect())
+    loop.run_until_complete(asyncio.wait({task}))
     deliverer.disconnect()
 
     loop.close()

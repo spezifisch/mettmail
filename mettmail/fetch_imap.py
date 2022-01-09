@@ -55,6 +55,9 @@ class FetchIMAP:
         user: str = "",
         password: str = "",
         mailbox: str = "INBOX",
+        timeout_connect: int = 30,
+        timeout_idle_start: int = 60,
+        timeout_idle_end: int = 5,
     ) -> None:
         self.host = host  # type: str
         self.port = port  # type: int
@@ -66,8 +69,9 @@ class FetchIMAP:
         self.deliverer = deliverer  # type: DeliverBase
 
         self.client = None  # type: Optional[aioimaplib.IMAP4_SSL]
-        self.timeout_idle_start = 60
-        self.timeout_idle_end = 5
+        self.timeout_connect = timeout_connect
+        self.timeout_idle_start = timeout_idle_start
+        self.timeout_idle_end = timeout_idle_end
 
     async def connect(self) -> None:
         """Connect to IMAP server and login.
@@ -76,7 +80,9 @@ class FetchIMAP:
         Login and mailbox selection was successful if no exception is raised.
         """
         logger.debug(f"connecting to {self.host}")
-        self.client = aioimaplib.IMAP4_SSL(host=self.host, port=self.port, timeout=30)  # doesn't raise
+        self.client = aioimaplib.IMAP4_SSL(
+            host=self.host, port=self.port, timeout=self.timeout_connect
+        )  # doesn't raise
 
         logger.trace("waiting for hello")
         try:
@@ -116,7 +122,7 @@ class FetchIMAP:
         # uncomment for testing purposes to quickly remove our flag from all messages
         # await self.client.uid("store", "1:*", f"-FLAGS.SILENT ({CUSTOM_FLAG_FETCHED})")
 
-    async def disconnect(self) -> None:
+    async def disconnect(self) -> bool:
         """Close IMAP connection."""
         if self.client:
             logger.trace("logging out")
@@ -135,6 +141,8 @@ class FetchIMAP:
             self.client = None
         else:
             logger.trace("already logged out")
+
+        return True
 
     async def run_idle_loop(self) -> None:
         """Run loop waiting for mails and delivering them as they arrive."""

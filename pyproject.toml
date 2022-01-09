@@ -24,7 +24,7 @@ flake8 = "^4.0.1"
 isort = {version = "^5.10.1"}
 
 [tool.poetry.scripts]
-mettmail = "mettmail.mettmail:run"
+mettmail = "mettmail.mettmail_cli:run"
 
 [tool.black]
 line-length = 119
