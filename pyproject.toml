@@ -30,6 +30,7 @@ mettmail = "mettmail.mettmail_cli:run"
 line-length = 119
 
 [tool.coverage.run]
+branch = true
 source = ["mettmail"]
 
 [tool.coverage.report]
