@@ -27,7 +27,7 @@ def tests(session):
     session.run("coverage", "report")
 
 
-@nox.session(python=["3.10"], reuse_venv=True)
+@nox.session(python=["3.8", "3.9", "3.10"], reuse_venv=True)
 def lint(session):
     session.install("poetry")
     session.run("poetry", "install", "--no-root")
