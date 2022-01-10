@@ -23,10 +23,11 @@ import click
 import strictyaml
 from loguru import logger
 
+import mettmail.mettmail_loop
+
 from .config_schema import MettmailSchema
 from .deliver_lmtp import DeliverLMTP
 from .fetch_imap import FetchIMAP
-from .mettmail_loop import mettmail_loop
 
 
 @click.command()
@@ -65,7 +66,7 @@ def run(config: str, debug: bool, trace: bool) -> None:
 
     # run mettmail_loop until an error occurs
     loop = asyncio.get_event_loop()
-    task = loop.create_task(mettmail_loop(fetcher))
+    task = loop.create_task(mettmail.mettmail_loop.mettmail_loop(fetcher))
     done, _ = loop.run_until_complete(asyncio.wait({task}))
     return_code = 1
     if len(done) and done.pop().result() is True:
@@ -77,7 +78,6 @@ def run(config: str, debug: bool, trace: bool) -> None:
     loop.run_until_complete(asyncio.wait({task}))
     deliverer.disconnect()
 
-    loop.close()
     sys.exit(return_code)
 
 

@@ -16,15 +16,13 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from unittest import TestCase, skip
+from unittest import IsolatedAsyncioTestCase
 from unittest.mock import patch
 
 from click.testing import CliRunner
 from loguru import logger
 
 from mettmail import __version__, mettmail_cli
-from mettmail.deliver_lmtp import DeliverLMTP
-from mettmail.fetch_imap import FetchIMAP
 from mettmail.mettmail_loop import mettmail_loop
 
 
@@ -32,10 +30,8 @@ def test_version() -> None:
     assert __version__ == "0.1.0"
 
 
-class TestMettmailCLI(TestCase):
+class TestMettmailCLI(IsolatedAsyncioTestCase):
     def setUp(self) -> None:
-        self.mock_deliver_lmtp = patch("mettmail.deliver_lmtp.DeliverLMTP", spec_set=DeliverLMTP).start()
-        self.mock_fetch_imap = patch("mettmail.fetch_imap.FetchIMAP", spec_set=FetchIMAP).start()
         self.mock_mettmail_loop = patch("mettmail.mettmail_loop.mettmail_loop", spec_set=mettmail_loop).start()
         self.addCleanup(patch.stopall)
 
@@ -69,8 +65,18 @@ class TestMettmailCLI(TestCase):
         assert result.exit_code == 1
         assert "level=10" in str(logger)
 
-    @skip("WIP not working")
     def test_success(self):
+        self.mock_mettmail_loop.return_value = True
+
         runner = CliRunner()
-        result = runner.invoke(mettmail_cli.run, ["--trace", "--config", "tests/data/success.yaml"])
+        result = runner.invoke(mettmail_cli.run, ["--config", "tests/data/success.yaml"])
         assert result.exit_code == 0
+        assert result.output == ""
+
+    def test_failure(self):
+        self.mock_mettmail_loop.return_value = False
+
+        runner = CliRunner()
+        result = runner.invoke(mettmail_cli.run, ["--config", "tests/data/success.yaml"])
+        assert result.exit_code == 1
+        assert result.output == ""
