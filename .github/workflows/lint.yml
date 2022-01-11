@@ -4,36 +4,35 @@
 name: Lint
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
-    inputs:
-      logLevel:
-        description: "Log level"
-        required: true
-        default: "warning"
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+    workflow_dispatch:
+        inputs:
+            logLevel:
+                description: "Log level"
+                required: true
+                default: "warning"
 
 jobs:
-  build:
+    build:
+        runs-on: ubuntu-latest
 
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v2
-      with:
-        python-version: "3.10"
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install nox
-    - name: Lint Python/YAML/TOML
-      run: |
-        nox -s lint
-    - name: Lint Dockerfile
-      uses: hadolint/hadolint-action@v1.6.0
-      with:
-        ignore: DL3008
+        steps:
+            - uses: actions/checkout@v2
+            - name: Set up Python 3.10
+              uses: actions/setup-python@v2
+              with:
+                  python-version: "3.10"
+            - name: Install dependencies
+              run: |
+                  python -m pip install --upgrade pip
+                  python -m pip install nox
+            - name: Lint Python/YAML/TOML
+              run: |
+                  nox -s lint
+            - name: Lint Dockerfile
+              uses: hadolint/hadolint-action@v1.6.0
+              with:
+                  ignore: DL3008
