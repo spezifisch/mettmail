@@ -1,10 +1,24 @@
 [tool.poetry]
 authors = ["spezifisch <spezifisch-gpl.7e6@below.fr>"]
-description = "get mail from IMAP server with IDLE extension and deliver to LMTP server, nothing else"
-license = "GPLv3"
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Operating System :: OS Independent",
+  "Framework :: Pytest",
+  "Topic :: Communications :: Email",
+  "Topic :: System :: Archiving :: Mirroring",
+]
+description = "Fetch mails from IMAP servers and deliver them to a local user"
+homepage = "https://github.com/spezifisch/mettmail"
+include = [
+  "LICENSE",
+]
+keywords = ["mail", "email", "imap", "lmtp"]
+license = "GPL-3.0-only"
 name = "mettmail"
+readme = "README.md"
 repository = "https://github.com/spezifisch/mettmail"
-version = "0.1.0"
+version = "0.1.1"
 
 [tool.poetry.dependencies]
 aioimaplib = {git = "https://github.com/bamthomas/aioimaplib", rev = "d417343"}
@@ -16,12 +30,12 @@ strictyaml = "^1.6.1"
 [tool.poetry.dev-dependencies]
 black = "^21.12b0"
 coverage = {extras = ["toml"], version = "^6.2"}
+flake8 = "^4.0.1"
+isort = {version = "^5.10.1"}
 loguru-mypy = "^0.0.4"
 mypy = "^0.930"
 pre-commit = "^2.16.0"
 pytest = "^6.2.5"
-flake8 = "^4.0.1"
-isort = {version = "^5.10.1"}
 
 [tool.poetry.scripts]
 mettmail = "mettmail.mettmail_cli:run"
@@ -47,7 +61,7 @@ plugins = "loguru_mypy"
 ignore_missing_imports = true
 module = [
   "aioimaplib",
-  "strictyaml"
+  "strictyaml",
 ]
 strict = true
 warn_return_any = false
