@@ -37,8 +37,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     python3-dev \
     unzip \
-    wget
-RUN pip install --no-cache-dir "poetry==$POETRY_VERSION"
+    wget && \
+    pip install --no-cache-dir "poetry==$POETRY_VERSION"
 
 WORKDIR /app
 
@@ -60,3 +60,4 @@ RUN useradd mettmail
 USER mettmail
 
 ENTRYPOINT ["/app/.venv/bin/mettmail"]
+CMD [ "--help" ]
