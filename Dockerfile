@@ -15,6 +15,11 @@
 
 FROM python:3.9.9-slim AS base
 
+LABEL org.opencontainers.image.authors="spezifisch"
+LABEL org.opencontainers.image.url="https://github.com/spezifisch/mettmail"
+LABEL org.opencontainers.image.source="https://github.com/spezifisch/mettmail"
+LABEL org.opencontainers.image.licenses="GPL-3.0-only"
+
 ENV PYTHONFAULTHANDLER=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONHASHSEED=random
@@ -52,6 +57,7 @@ RUN poetry build && \
 FROM base AS runtime
 COPY --from=builder /app/.venv/ /app/.venv
 
+WORKDIR /app
 RUN useradd mettmail
 USER mettmail
 

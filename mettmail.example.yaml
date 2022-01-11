@@ -1,9 +1,9 @@
 imap:
-    host: localhost
-    port: 9931
+    host: testcot
+    port: 993
     user: a
     password: pass
 lmtp:
-    host: localhost
+    host: testcot
     port: 24
     envelope_recipient: rxa
