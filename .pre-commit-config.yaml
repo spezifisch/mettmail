@@ -10,17 +10,22 @@ repos:
           - id: check-toml
           - id: check-added-large-files
           - id: check-merge-conflict
-    -   repo: https://github.com/asottile/seed-isort-config
-        rev: v2.2.0
-        hooks:
-        -   id: seed-isort-config
-    -   repo: https://github.com/timothycrosley/isort
-        rev: 5.10.1
-        hooks:
-        -   id: isort
+    - repo: https://github.com/asottile/seed-isort-config
+      rev: v2.2.0
+      hooks:
+          - id: seed-isort-config
+    - repo: https://github.com/timothycrosley/isort
+      rev: 5.10.1
+      hooks:
+          - id: isort
             args: ["--profile", "black", "--filter-files"]
     - repo: https://github.com/psf/black
       rev: 21.12b0
       hooks:
           - id: black
             language_version: python3
+    - repo: https://github.com/hadolint/hadolint
+      rev: v2.8.0
+      hooks:
+          - id: hadolint-docker
+            args: ["--ignore=DL3008"]

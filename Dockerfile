@@ -26,21 +26,19 @@ ENV PYTHONFAULTHANDLER=1 \
 
 FROM base AS builder
 
-ARG PIP_NO_CACHE_DIR=off \
-    PIP_DISABLE_PIP_VERSION_CHECK=on \
-    PIP_DEFAULT_TIMEOUT=100 \
+ARG PIP_DISABLE_PIP_VERSION_CHECK=on \
     POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_IN_PROJECT=1 \
     POETRY_VERSION=1.1.12
 
 # build deps
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     git \
     python3-dev \
     unzip \
     wget
-RUN pip install "poetry==$POETRY_VERSION"
+RUN pip install --no-cache-dir "poetry==$POETRY_VERSION"
 
 WORKDIR /app
 
@@ -51,7 +49,7 @@ RUN poetry install --no-dev --no-root
 # build and install package
 COPY . .
 RUN poetry build && \
-    /app/.venv/bin/pip install dist/*.whl
+    /app/.venv/bin/pip install --no-cache-dir dist/*.whl
 
 # runtime image
 FROM base AS runtime
