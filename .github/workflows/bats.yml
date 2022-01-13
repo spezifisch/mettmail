@@ -1,0 +1,19 @@
+name: Test with dovecot
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@v2
+
+            - name: Start test dovecot and mettmails
+              run: docker-compose -f ./docker-compose.test-bats.yaml up -d --build testcot mettmail_a mettmail_rxb
+
+            - name: BATS Test
+              run: docker-compose -f ./docker-compose.test-bats.yaml run test

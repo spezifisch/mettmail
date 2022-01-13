@@ -1,3 +1,4 @@
+#!/usr/bin/env bats
 # This file is part of mettmail (https://github.com/spezifisch/mettmail).
 # Copyright (c) 2022 spezifisch (https://github.com/spezifisch)
 #
@@ -13,25 +14,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-services:
-  app:
-    image: spezifisch/mettmail:dev
-    build:
-      context: .
-    volumes:
-      - ./mettmail.example.yaml:/config/mettmail.yaml:ro
-    command: [ "--trace", "--config", "/config/mettmail.yaml" ]
-    restart: unless-stopped
-    depends_on:
-      - testcot
+setup() {
+    load "${TEST_HELPER}/bats-support/load.bash"
+    load "${TEST_HELPER}/bats-assert/load.bash"
+    load "${TEST_HELPER}/bats-file/load.bash"
+}
 
-  testcot:
-    image: spezifisch/test-dovecot:latest
-    volumes:
-      - test-home:/home
-      - test-ssl:/etc/dovecot/ssl
-    restart: unless-stopped
+@test "mail was delivered from a to rxa" {
+    A_MAILS="$(find /home/rxa/Maildir/new -type f | wc -l)"
+    [ "${A_MAILS}" -ge 1 ] || fail "rxa didn't get mail"
 
-volumes:
-  test-home: null
-  test-ssl: null
+    MAIL_FILE="$(find /home/rxa/Maildir/new -type f | tail -1)"
+    assert_file_contains "${MAIL_FILE}" "^To: a@testcot"
+    assert_file_contains "${MAIL_FILE}" "^Subject: test mail"
+}

@@ -14,24 +14,48 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 services:
-  app:
-    image: spezifisch/mettmail:dev
-    build:
-      context: .
+  # test dovecot with imap/lmtp (our test source and destination server)
+  testcot:
+    image: ghcr.io/spezifisch/docker-test-dovecot:latest
     volumes:
-      - ./mettmail.example.yaml:/config/mettmail.yaml:ro
-    command: [ "--trace", "--config", "/config/mettmail.yaml" ]
-    restart: unless-stopped
+      - testcot-home:/home
+
+  # fetch from a -> deliver to rxa
+  mettmail_a:
     depends_on:
       - testcot
-
-  testcot:
-    image: spezifisch/test-dovecot:latest
+    build:
+      context: .
+    image: mettmail-bats-test
     volumes:
-      - test-home:/home
-      - test-ssl:/etc/dovecot/ssl
+      - ./tests/data/mettmail-a.yaml:/config/mettmail.yaml:ro
+    command: [ "--trace", "--config", "/config/mettmail.yaml" ]
     restart: unless-stopped
 
+  # fetch from rxb -> deliver to rxc
+  mettmail_rxb:
+    depends_on:
+      - testcot
+    image: mettmail-bats-test
+    volumes:
+      - ./tests/data/mettmail-rxb.yaml:/config/mettmail.yaml:ro
+    command: [ "--trace", "--config", "/config/mettmail.yaml" ]
+    restart: unless-stopped
+
+  # test runner
+  test:
+    depends_on:
+      - testcot
+      - mettmail_a
+      - mettmail_rxb
+    image: ghcr.io/spezifisch/docker-bats-extra:latest
+    volumes:
+      # bats test scripts
+      - ./tests/bats:/code/tests:ro
+      # test users home dirs
+      - testcot-home:/home
+    # run all bats tests
+    command: "/code/tests"
+
 volumes:
-  test-home: null
-  test-ssl: null
+  testcot-home: null
