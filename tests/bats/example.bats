@@ -20,11 +20,33 @@ setup() {
     load "${TEST_HELPER}/bats-file/load.bash"
 }
 
+@test "wait until dovecot is up" {
+    until nc -z testcot 993; do
+        sleep 0.5
+    done
+}
+
 @test "mail was delivered from a to rxa" {
+    assert_dir_exist "/home/rxa/Maildir/new"
     A_MAILS="$(find /home/rxa/Maildir/new -type f | wc -l)"
     [ "${A_MAILS}" -ge 1 ] || fail "rxa didn't get mail"
 
     MAIL_FILE="$(find /home/rxa/Maildir/new -type f | tail -1)"
     assert_file_contains "${MAIL_FILE}" "^To: a@testcot"
     assert_file_contains "${MAIL_FILE}" "^Subject: test mail"
+}
+
+clear_mails() {
+    USERNAME="$1"
+    MAILDIR="/home/$USERNAME/Maildir"
+    assert_dir_exist "$MAILDIR"
+    assert_dir_exist "$MAILDIR/cur"
+    assert_dir_exist "$MAILDIR/new"
+    assert_dir_exist "$MAILDIR/tmp"
+    rm -f "$MAILDIR/{cur,new,tmp}/*"
+}
+
+@test "deliver mail from rxb to rxc" {
+    clear_mails rxb
+    clear_mails rxc
 }

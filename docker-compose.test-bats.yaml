@@ -20,6 +20,17 @@ services:
     volumes:
       - testcot-home:/home
 
+  testcot_wait:
+    depends_on:
+      - testcot
+    image: busybox:1
+    command:
+      [
+        "sh",
+        "-c",
+        "until nc -z testcot 993; do sleep 1; done"
+      ]
+
   # fetch from a -> deliver to rxa
   mettmail_a:
     depends_on:

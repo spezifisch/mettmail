@@ -12,8 +12,15 @@ jobs:
         steps:
             - uses: actions/checkout@v2
 
-            - name: Start test dovecot and mettmails
-              run: docker-compose -f ./docker-compose.test-bats.yaml up -d --build testcot mettmail_a mettmail_rxb
+            - name: Start test dovecot
+              run: docker-compose -f ./docker-compose.test-bats.yaml up -d --build testcot
+
+            - name: Wait until dovecot is ready
+              timeout-minutes: 5
+              run: docker-compose -f ./docker-compose.test-bats.yaml run testcot_wait
+
+            - name: Start mettmail instances
+              run: docker-compose -f ./docker-compose.test-bats.yaml up -d --build mettmail_a mettmail_rxb
 
             - name: BATS Test
               run: docker-compose -f ./docker-compose.test-bats.yaml run test
