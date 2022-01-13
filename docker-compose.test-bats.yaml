@@ -20,15 +20,20 @@ services:
     volumes:
       - testcot-home:/home
 
+  # wait until testcot's imaps port is reachable. used by the github test action
   testcot_wait:
     depends_on:
       - testcot
     image: busybox:1
+    environment:
+      TESTHOST: testcot
+      TESTPORT: 993
     command:
       [
         "sh",
         "-c",
-        "until nc -z testcot 993; do sleep 1; done"
+        "until nc -z $$TESTHOST $$TESTPORT; do echo waiting; sleep 1; done;
+          echo up"
       ]
 
   # fetch from a -> deliver to rxa
