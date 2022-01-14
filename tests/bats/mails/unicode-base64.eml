@@ -1,0 +1,22 @@
+Content-Type: multipart/alternative;
+ boundary="===============6979958983933750705=="
+MIME-Version: 1.0
+Subject: =?utf-8?b?4oyYVW5pY29kZSB0ZXN04oyY?=
+From: "=?utf-8?b?4oyYdW5pY29kZSBndXnijJg=?=" <one@example.com>
+To: "=?utf-8?b?8J+Og2phY2s=?=" <two@example.com>
+
+--===============6979958983933750705==
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: base64
+
+VW5pY29kZeKPjgpUZXN04o+O
+
+--===============6979958983933750705==
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+
+VW5pY29kZeKPjgpUZXN04o+O
+
+--===============6979958983933750705==--

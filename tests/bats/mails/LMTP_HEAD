@@ -1,0 +1,4 @@
+LHLO localhost
+MAIL FROM:<ENV_FROM>
+RCPT TO:<ENV_TO>
+DATA

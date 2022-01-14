@@ -1,0 +1,22 @@
+Content-Type: multipart/alternative;
+ boundary="===============4142276049298764998=="
+MIME-Version: 1.0
+Subject: ⌘Unicode test⌘
+From: "⌘unicode guy⌘" <one@example.com>
+To: "🎃jack" <two@example.com>
+
+--===============4142276049298764998==
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Unicode⏎
+Test⏎
+--===============4142276049298764998==
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Unicode⏎
+Test⏎
+--===============4142276049298764998==--

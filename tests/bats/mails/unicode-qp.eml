@@ -1,0 +1,22 @@
+Content-Type: multipart/alternative;
+ boundary="===============5813167454018439180=="
+MIME-Version: 1.0
+Subject: =?utf-8?q?=E2=8C=98Unicode_test=E2=8C=98?=
+From: "=?utf-8?q?=E2=8C=98unicode_guy=E2=8C=98?=" <one@example.com>
+To: "=?utf-8?q?=F0=9F=8E=83jack?=" <two@example.com>
+
+--===============5813167454018439180==
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+Unicode=E2=8F=8E
+Test=E2=8F=8E
+--===============5813167454018439180==
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+Unicode=E2=8F=8E
+Test=E2=8F=8E
+--===============5813167454018439180==--

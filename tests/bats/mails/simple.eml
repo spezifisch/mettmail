@@ -1,0 +1,26 @@
+Date: Thu, 13 Jan 2022 13:37:34 -0800
+From: spezifisch <notifications@github.com>
+Reply-To: spezifisch/mettmail <noreply@github.com>
+To: spezifisch/mettmail <mettmail@noreply.github.com>
+Cc: Ci activity <ci_activity@noreply.github.com>
+Message-ID: <spezifisch/mettmail/check-suites/foo/bar@github.com>
+Subject: [spezifisch/mettmail] Run failed: Test with dovecot - main (be712d7)
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+[spezifisch/mettmail] Test with dovecot workflow run
+
+Repository: spezifisch/mettmail
+Workflow: Test with dovecot
+Duration: 1 minute and 22.0 seconds
+Finished: 2022-01-13 21:37:23 UTC
+
+View results: https://github.com/spezifisch/mettmail/actions/runs/1694953747
+
+Jobs:
+  * build failed (1 annotation)
+
+--
+You are receiving this because this workflow ran on your branch.
+Manage your GitHub Actions notifications: https://github.com/settings/notifications
