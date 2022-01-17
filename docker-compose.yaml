@@ -14,24 +14,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 services:
-  app:
-    image: spezifisch/mettmail:dev
-    build:
-      context: .
+  mettmail_example:
+    # use the following line if you want the pre-built from github
+    image: ghcr.io/spezifisch/mettmail:latest
+    # comment the above line and use the following lines if you want to build the image yourself (e.g. if you don't trust github)
+    # build:
+    #   context: .
     volumes:
       - ./mettmail.example.yaml:/config/mettmail.yaml:ro
-    command: [ "--trace", "--config", "/config/mettmail.yaml" ]
+    command: [ "--config", "/config/mettmail.yaml" ]
     restart: unless-stopped
-    depends_on:
-      - testcot
-
-  testcot:
-    image: spezifisch/test-dovecot:latest
-    volumes:
-      - test-home:/home
-      - test-ssl:/etc/dovecot/ssl
-    restart: unless-stopped
-
-volumes:
-  test-home: null
-  test-ssl: null
