@@ -30,6 +30,6 @@ jobs:
                   python -m pip install --upgrade pip
                   python -m pip install nox
             - name: Test
-              continue-on-error: true
+              continue-on-error: true # TODO remove this line after everything works with 3.10
               run: |
                   nox -p 3.10 -s tests
