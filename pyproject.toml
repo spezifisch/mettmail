@@ -23,7 +23,7 @@ version = "0.1.1"
 [tool.poetry.dependencies]
 aioimaplib = {git = "https://github.com/bamthomas/aioimaplib", rev = "d417343"}
 click = "^8.0.3"
-loguru = "^0.5.3"
+loguru = ">=0.5.3,<0.7.0"
 python = "^3.8.0"
 strictyaml = "^1.6.1"
 
