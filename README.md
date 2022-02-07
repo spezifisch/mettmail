@@ -132,9 +132,9 @@ Initial setup for all interpreters and environments:
 
 ```shell
 pyenv install 3.8.12
-pyenv install 3.9.9
-pyenv install 3.10.1
-pyenv local 3.8.12 3.9.9 3.10.1
+pyenv install 3.9.10
+pyenv install 3.10.2
+pyenv local 3.8.12 3.9.10 3.10.2
 nox
 ```
 
