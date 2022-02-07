@@ -128,28 +128,28 @@ class TestDeliverLMTP(unittest.TestCase):
 
     def test_fail_connect_errors_disconnect(self) -> None:
         # things that raise on LMTP object construction
-        with patch("smtplib.LMTP", autospec=True, side_effect=SMTPServerDisconnected("test")) as mock:
+        with patch("smtplib.LMTP", autospec=True, side_effect=SMTPServerDisconnected("test")):
             lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
             with self.assertRaises(MettmailDeliverConnectError) as ctx:
                 lmtp.connect()
             assert "connection error" in str(ctx.exception)
 
     def test_fail_connect_errors_notsupp(self) -> None:
-        with patch("smtplib.LMTP", autospec=True, side_effect=SMTPNotSupportedError("test")) as mock:
+        with patch("smtplib.LMTP", autospec=True, side_effect=SMTPNotSupportedError("test")):
             lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
             with self.assertRaises(MettmailDeliverConnectError) as ctx:
                 lmtp.connect()
             assert "smtp error" in str(ctx.exception)
 
     def test_fail_connect_errors_gaierror(self) -> None:
-        with patch("smtplib.LMTP", autospec=True, side_effect=gaierror("test")) as mock:
+        with patch("smtplib.LMTP", autospec=True, side_effect=gaierror("test")):
             lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
             with self.assertRaises(MettmailDeliverConnectError) as ctx:
                 lmtp.connect()
             assert "socket error" in str(ctx.exception)
 
     def test_fail_connect_errors_socketerror(self) -> None:
-        with patch("smtplib.LMTP", autospec=True, side_effect=OSError("test")) as mock:
+        with patch("smtplib.LMTP", autospec=True, side_effect=OSError("test")):
             lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
             with self.assertRaises(MettmailDeliverConnectError) as ctx:
                 lmtp.connect()
