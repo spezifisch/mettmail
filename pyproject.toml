@@ -14,11 +14,11 @@ include = [
   "LICENSE",
 ]
 keywords = ["mail", "email", "imap", "lmtp"]
-license = "GPL-3.0-only"
+license = "AGPL-3.0-only"
 name = "mettmail"
 readme = "README.md"
 repository = "https://github.com/spezifisch/mettmail"
-version = "0.1.1"
+version = "0.2.0"
 
 [tool.poetry.dependencies]
 aioimaplib = {git = "https://github.com/bamthomas/aioimaplib", rev = "d417343"}

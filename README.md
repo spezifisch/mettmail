@@ -4,19 +4,19 @@ Get mail from IMAP server with IDLE extension and deliver to LMTP server, nothin
 
 **Design choices:**
 
--   Our most important goal is to never risk losing any email.
--   Processed incoming emails are only flagged as fetched but not yet deleted.
--   We ensure that only emails are flagged which have been 100% certainly delivered to their LMTP destination.
--   All errors lead to safe failure states, most of them just quitting of the program and retry on the next run. (Though this will be improved in the future.)
--   Rely on IMAP IDLE and custom flags features.
--   As little state should be kept inside mettmail as possible. (Currently no state at all is kept; fetched mails are marked with an IMAP flag which is stored on the server.)
--   100% unit test coverage, additional black box tests against a real non-mocked IMAP/LMTP-server.
+- Our most important goal is to never risk losing any email.
+- Processed incoming emails are only flagged as fetched but not yet deleted.
+- We ensure that only emails are flagged which have been 100% certainly delivered to their LMTP destination.
+- All errors lead to safe failure states, most of them just quitting of the program and retry on the next run. (Though this will be improved in the future.)
+- Rely on IMAP IDLE and custom flags features.
+- As little state should be kept inside mettmail as possible. (Currently no state at all is kept; fetched mails are marked with an IMAP flag which is stored on the server.)
+- 100% unit test coverage, additional black box tests against a real non-mocked IMAP/LMTP-server.
 
 **TODO:**
 
--   Implement deleting emails (figure out how to do it in a safe way, currently all emails are flagged but kept)
--   Test and ensure Podman compatibility
--   Implement Docker health checking
+- Implement deleting emails (figure out how to do it in a safe way, currently all emails are flagged but kept)
+- Test and ensure Podman compatibility
+- Implement Docker health checking
 
 ## Usage with Docker
 
@@ -26,12 +26,12 @@ This script it designed to take advantage of Docker's automatic restarting featu
 
 Pretty much every non-recoverable error leads to an exception that leaves all mails in a safe state and whatever failed is tried again on the next run. Also it's pretty nice security-wise that every mettmail instance runs in its own container without being able to see login credentials for other configured accounts.
 
-### Requirements
+### Requirements for Docker Image
 
--   Docker
--   docker-compose
+- Docker
+- docker-compose
 
-### Run
+### Running the Docker Container
 
 Use the included `docker-compose.yaml` and `mettmail.example.yaml` as a starting point.
 
@@ -63,8 +63,8 @@ You _can_ use mettmail without Docker with the following steps.
 
 ### Requirements
 
--   python >=3.8
--   [poetry](https://python-poetry.org/) (`pip install --user poetry`)
+- python >=3.8
+- [poetry](https://python-poetry.org/) (`pip install --user poetry`)
 
 Install dependencies:
 
@@ -90,14 +90,14 @@ poetry run mettmail --help
 
 Now you need something to restart mettmail after failures, for example:
 
--   Run it as a systemd (user) service
+- Run it as a systemd (user) service
 
 ## Development
 
 ### Build Dependencies
 
--   [nox](https://nox.thea.codes/) as test-runner
--   [pyenv](https://github.com/pyenv/pyenv) (recommended) to manage python versions
+- [nox](https://nox.thea.codes/) as test-runner
+- [pyenv](https://github.com/pyenv/pyenv) (recommended) to manage python versions
 
 Install dependencies and pre-commit hooks:
 
