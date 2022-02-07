@@ -126,7 +126,7 @@ class TestDeliverLMTP(unittest.TestCase):
             mock.return_value.quit.side_effect = SMTPException("test")
             lmtp.disconnect()
 
-    def test_fail_connect_errors(self) -> None:
+    def test_fail_connect_errors_disconnect(self) -> None:
         # things that raise on LMTP object construction
         with patch("smtplib.LMTP", autospec=True, side_effect=SMTPServerDisconnected("test")) as mock:
             lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
@@ -134,24 +134,28 @@ class TestDeliverLMTP(unittest.TestCase):
                 lmtp.connect()
             assert "connection error" in str(ctx.exception)
 
+    def test_fail_connect_errors_notsupp(self) -> None:
         with patch("smtplib.LMTP", autospec=True, side_effect=SMTPNotSupportedError("test")) as mock:
             lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
             with self.assertRaises(MettmailDeliverConnectError) as ctx:
                 lmtp.connect()
             assert "smtp error" in str(ctx.exception)
 
+    def test_fail_connect_errors_gaierror(self) -> None:
         with patch("smtplib.LMTP", autospec=True, side_effect=gaierror("test")) as mock:
             lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
             with self.assertRaises(MettmailDeliverConnectError) as ctx:
                 lmtp.connect()
             assert "socket error" in str(ctx.exception)
 
+    def test_fail_connect_errors_socketerror(self) -> None:
         with patch("smtplib.LMTP", autospec=True, side_effect=OSError("test")) as mock:
             lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
             with self.assertRaises(MettmailDeliverConnectError) as ctx:
                 lmtp.connect()
             assert "socket error" in str(ctx.exception)
 
+    def test_fail_connect_errors_ehlo_disconnect(self) -> None:
         # raises on ehlo
         with patch("smtplib.LMTP", autospec=True) as mock:
             mock.return_value.ehlo.side_effect = SMTPServerDisconnected("test")
@@ -161,12 +165,14 @@ class TestDeliverLMTP(unittest.TestCase):
                 lmtp.connect()
             assert "LHLO failed" in str(ctx.exception)
 
+    def test_fail_connect_errors_valueerror(self) -> None:
         # uncovered exceptions should pass through so we can log and fix them
         with patch("smtplib.LMTP", autospec=True, side_effect=ValueError("test")):
             lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
             with self.assertRaises(ValueError):
                 lmtp.connect()
 
+    def test_fail_connect_errors_ehlo_valueerror(self) -> None:
         with patch("smtplib.LMTP", autospec=True) as mock:
             mock.return_value.ehlo.side_effect = ValueError("test")
             lmtp = DeliverLMTP(host=self.TEST_HOST, port=self.TEST_PORT, envelope_recipient=self.TEST_RECIPIENT)
@@ -183,7 +189,7 @@ class TestDeliverLMTP(unittest.TestCase):
             with self.assertRaises(AssertionError):
                 lmtp.deliver_message(self.TEST_MAIL_MSG)
 
-    def test_delivery_errors(self) -> None:
+    def test_delivery_errors_rcptrefused(self) -> None:
         # recipients refused
         with patch("smtplib.LMTP", autospec=True) as mock:
             mock_object = mock.return_value
@@ -198,6 +204,7 @@ class TestDeliverLMTP(unittest.TestCase):
                 lmtp.deliver_message(self.TEST_MAIL_MSG)
             assert "recipient refused" in str(ctx.exception)
 
+    def test_delivery_errors_disconnect(self) -> None:
         # connection dropped
         with patch("smtplib.LMTP", autospec=True) as mock:
             mock_object = mock.return_value
@@ -212,6 +219,7 @@ class TestDeliverLMTP(unittest.TestCase):
                 lmtp.deliver_message(self.TEST_MAIL_MSG)
             assert "smtp failure" in str(ctx.exception)
 
+    def test_delivery_errors_sendmail_oserror(self) -> None:
         # socket stuff
         with patch("smtplib.LMTP", autospec=True) as mock:
             mock_object = mock.return_value
@@ -226,6 +234,7 @@ class TestDeliverLMTP(unittest.TestCase):
                 lmtp.deliver_message(self.TEST_MAIL_MSG)
             assert "general smtp failure" == str(ctx.exception)
 
+    def test_delivery_errors_inconsistency1(self) -> None:
         # test weird stuff just in case
         with patch("smtplib.LMTP", autospec=True) as mock:
             mock_object = mock.return_value
@@ -239,6 +248,7 @@ class TestDeliverLMTP(unittest.TestCase):
                 lmtp.deliver_message(self.TEST_MAIL_MSG)
             assert "sending failed" in str(ctx.exception)
 
+    def test_delivery_errors_inconsistency2(self) -> None:
         with patch("smtplib.LMTP", autospec=True) as mock:
             mock_object = mock.return_value
             # abnormal behaviour: exception not raised and non-dict returned (isn't possible)
