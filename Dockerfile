@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM python:3.9.10-slim AS base
+FROM python:3.9.12-slim AS base
 
 LABEL org.opencontainers.image.authors="spezifisch"
 LABEL org.opencontainers.image.url="https://github.com/spezifisch/mettmail"
